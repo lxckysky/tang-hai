@@ -42,17 +42,22 @@ export default async function handler(req, res) {
 ตอบกลับเป็น JSON เท่านั้น:
 {"items":[{"key":"...","category":"...","hint":"..."}],"summaryBullets":["...","...","..."]}`;
 
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(apiKey)}`;
+    const isVertexKey = apiKey.startsWith('AQ.');
+    const url = isVertexKey
+      ? `https://aiplatform.googleapis.com/v1/publishers/google/models/gemini-2.0-flash:generateContent?key=${encodeURIComponent(apiKey)}`
+      : `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(apiKey)}`;
+
+    const payload = {
+      contents: [{ role: 'user', parts: [{ text: promptText }] }],
+      generationConfig: isVertexKey
+        ? { responseMimeType: 'application/json', temperature: 0.2 }
+        : { responseMimeType: 'application/json', thinkingConfig: { thinkingBudget: 0 } }
+    };
+
     const geminiRes = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: promptText }] }],
-        generationConfig: {
-          responseMimeType: 'application/json',
-          thinkingConfig: { thinkingBudget: 0 }
-        }
-      })
+      body: JSON.stringify(payload)
     });
 
     if (!geminiRes.ok) {

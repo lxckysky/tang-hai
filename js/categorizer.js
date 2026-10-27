@@ -134,7 +134,8 @@ window.TangHai.Categorizer = {
         };
       }
 
-      if ((ownerCoreName && desc.includes(ownerCoreName)) || passThroughIds.has(tx.id)) {
+      // 1.2 ตรวจจับโอนเงินไปบัญชีชื่อตัวเอง (เช็กจากชื่อเจ้าของสเตทเมนต์ตรงกับชื่อปลายทางเท่านั้น!)
+      if (ownerCoreName && desc.includes(ownerCoreName)) {
         ruleHits++;
         return {
           ...tx,
@@ -142,7 +143,7 @@ window.TangHai.Categorizer = {
           autoHint,
           category: 'SELF_TRANSFER',
           source: 'RULE',
-          sourceLabel: ownerCoreName && desc.includes(ownerCoreName) ? 'โอนบัญชีตัวเอง' : 'เงินผ่านบัญชี',
+          sourceLabel: 'โอนบัญชีตัวเอง',
           needsReview: false
         };
       }
@@ -333,17 +334,22 @@ window.TangHai.Categorizer = {
 ตอบกลับเป็น JSON เท่านั้น:
 {"items":[{"key":"...","category":"...","hint":"..."}],"summaryBullets":["...","...","..."]}`;
 
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(apiKey)}`;
+      const isVertexKey = apiKey.startsWith('AQ.');
+      const url = isVertexKey
+        ? `https://aiplatform.googleapis.com/v1/publishers/google/models/gemini-2.0-flash:generateContent?key=${encodeURIComponent(apiKey)}`
+        : `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(apiKey)}`;
+
+      const payload = {
+        contents: [{ role: 'user', parts: [{ text: promptText }] }],
+        generationConfig: isVertexKey
+          ? { responseMimeType: 'application/json', temperature: 0.2 }
+          : { responseMimeType: 'application/json', thinkingConfig: { thinkingBudget: 0 } }
+      };
+
       const response = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: promptText }] }],
-          generationConfig: {
-            responseMimeType: 'application/json',
-            thinkingConfig: { thinkingBudget: 0 }
-          }
-        })
+        body: JSON.stringify(payload)
       });
 
       if (!response.ok) {
@@ -405,8 +411,12 @@ window.TangHai.Categorizer = {
 
   generateAIContextHint(tx) {
     const amt = tx.debit || 0;
+    const day = parseInt((tx.date || '01/10/26').split('/')[0], 10);
     const hour = parseInt((tx.time || '12:00').split(':')[0], 10);
 
+    if (amt >= 3000 && day <= 5) {
+      return 'AI คาดว่า: ค่าเช่าคอนโด / หอพักรายเดือน (โอนก้อนใหญ่ช่วงต้นเดือน)';
+    }
     if (amt <= 65 && hour >= 6 && hour <= 21) {
       return 'AI คาดว่า: ร้านอาหาร / เครื่องดื่ม / วิน (ยอดย่อยช่วงเวลาอาหาร)';
     }
@@ -414,7 +424,7 @@ window.TangHai.Categorizer = {
       return 'AI คาดว่า: มื้ออาหารหลัก / หารค่าของกับเพื่อน';
     }
     if (amt >= 1000) {
-      return 'AI คาดว่า: ค่าหอพัก / ของชิ้นใหญ่ / โอนคืนเพื่อน';
+      return 'AI คาดว่า: ค่าที่พัก / ของชิ้นใหญ่ / โอนให้เพื่อน';
     }
     return 'AI คาดว่า: โอนให้บุคคล / ชำระออนไลน์';
   },
@@ -510,13 +520,17 @@ window.TangHai.Categorizer = {
         if (d.debit >= 1000) {
           const matchingIn = credits.find(c => Math.abs(c.credit - d.debit) < 0.01);
           if (matchingIn && !(ownerCoreName && d.description.includes(ownerCoreName))) {
-            passThroughTxIds.push(d.id);
-            splitNoteById[d.id] = `ยอดตรงกับเงินโอนเข้า +${d.debit.toLocaleString()} ในวันเดียวกัน`;
+            const fromSelf = ownerCoreName && matchingIn.description.includes(ownerCoreName);
+            splitNoteById[d.id] = fromSelf
+              ? `ดึงเงินจากบัญชีรองตัวเอง (+${d.debit.toLocaleString()}) มาจ่ายรายการนี้ (เช่น ค่าคอนโด/ค่าที่พักรายเดือน)`
+              : `ยอดตรงกับเงินโอนเข้า +${d.debit.toLocaleString()} ในวันเดียวกัน`;
             detectedEvents.push({
               date,
               type: 'PASS_THROUGH',
-              title: `เงินผ่านบัญชี ฿${d.debit.toLocaleString()}`,
-              detail: `วันที่ ${date} มีเงินเข้า +${d.debit.toLocaleString()} แล้วโอนออก -${d.debit.toLocaleString()} ไปยัง "${d.description}"`
+              title: fromSelf
+                ? `ดึงเงินจากบัญชีรองมาจ่ายก้อนใหญ่ ฿${d.debit.toLocaleString()}`
+                : `เงินผ่านบัญชี ฿${d.debit.toLocaleString()}`,
+              detail: `วันที่ ${date} โอนเข้า +${d.debit.toLocaleString()} (${matchingIn.description}) แล้วโอนออก -${d.debit.toLocaleString()} ไปยัง "${d.description}"`
             });
           }
         }
