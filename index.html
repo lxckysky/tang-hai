@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>TangHai — วิเคราะห์และจัดหมวดหมู่สเตทเมนต์</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script>
+    if (window.pdfjsLib) {
+      window.pdfjsLib.GlobalWorkerOptions.workerSrc =
+        'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    }
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    body {
+      font-family: 'Inter', 'IBM Plex Sans Thai', -apple-system, BlinkMacSystemFont, sans-serif;
+      background-color: #f8fafc;
+      color: #0f172a;
+      -webkit-tap-highlight-color: transparent;
+    }
+    /* ป้องกัน iPhone (iOS Safari) ซูมหน้าจอเองเวลาแตะช่อง input/select */
+    @media (max-width: 768px) {
+      input, select, button {
+        font-size: 16px !important;
+      }
+    }
+  </style>
+</head>
+<body class="min-h-screen antialiased pb-24 lg:pb-10">
+
+  <!-- แจ้งเตือนสถานะ -->
+  <div id="status-toast" class="hidden fixed bottom-20 lg:bottom-6 right-4 left-4 sm:left-auto z-50 bg-zinc-900 text-white px-4 py-3 rounded-xl shadow-lg text-sm font-medium text-center sm:text-left">
+    <span id="status-toast-text">บันทึกข้อมูลเรียบร้อย</span>
+  </div>
+
+  <!-- Top Header -->
+  <header class="bg-white border-b border-zinc-200 sticky top-0 z-30">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-3">
+      <div class="flex items-center gap-3 min-w-0">
+        <div class="w-8 h-8 rounded-lg bg-zinc-900 text-white flex items-center justify-center text-xs font-bold shrink-0">
+          TH
+        </div>
+        <div class="truncate">
+          <div class="text-sm font-semibold text-zinc-900 truncate" id="file-meta-title">TangHai</div>
+          <div class="text-xs text-zinc-500 truncate" id="file-meta-sub">ระบบวิเคราะห์รายการเดินบัญชี</div>
+        </div>
+      </div>
+
+      <!-- เมนูสลับหน้าบน PC / iPad แนวนอน -->
+      <nav id="desktop-nav" class="hidden md:flex items-center gap-1 bg-zinc-100 p-1 rounded-xl">
+        <button data-page="OVERVIEW" onclick="window.TangHai.switchPage('OVERVIEW')"
+          class="nav-page-btn px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-white text-zinc-900 shadow-sm transition">
+          ภาพรวม
+        </button>
+        <button data-page="PRIORITY" onclick="window.TangHai.switchPage('PRIORITY')"
+          class="nav-page-btn px-3.5 py-1.5 rounded-lg text-xs font-medium text-zinc-600 hover:text-zinc-900 transition flex items-center gap-1.5">
+          <span>ระบุยอดใหญ่</span>
+          <span id="nav-badge-priority" class="px-1.5 py-0.2 rounded-full bg-amber-500 text-white text-[10px] font-bold">0</span>
+        </button>
+        <button data-page="TRANSACTIONS" onclick="window.TangHai.switchPage('TRANSACTIONS')"
+          class="nav-page-btn px-3.5 py-1.5 rounded-lg text-xs font-medium text-zinc-600 hover:text-zinc-900 transition">
+          รายการทั้งหมด
+        </button>
+        <button data-page="ACCOUNTS" onclick="window.TangHai.switchPage('ACCOUNTS')"
+          class="nav-page-btn px-3.5 py-1.5 rounded-lg text-xs font-medium text-zinc-600 hover:text-zinc-900 transition">
+          บัญชีของฉัน & สมุดจำ
+        </button>
+      </nav>
+
+      <div id="header-actions" class="hidden flex items-center gap-2 shrink-0">
+        <button onclick="window.TangHai.exportCSV()"
+          class="px-3 py-2 rounded-lg border border-zinc-200 bg-white hover:bg-zinc-50 text-xs font-medium text-zinc-700 transition">
+          CSV
+        </button>
+        <button onclick="window.TangHai.clearSession()"
+          class="px-3 py-2 rounded-lg border border-zinc-200 bg-white hover:bg-rose-50 hover:text-rose-600 text-xs font-medium text-zinc-600 transition">
+          ล้างข้อมูล
+        </button>
+        <label class="cursor-pointer px-3 py-2 rounded-lg bg-zinc-900 hover:bg-zinc-800 text-xs font-medium text-white transition">
+          เปลี่ยนไฟล์
+          <input type="file" accept=".pdf" class="pdf-file-input hidden" />
+        </label>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-5xl mx-auto px-4 sm:px-6 py-6 sm:py-10">
+
+    <!-- หน้าเริ่มต้น: อัปโหลดไฟล์ PDF -->
+    <section id="empty-upload-view" class="max-w-lg mx-auto py-8 sm:py-14">
+      <div class="bg-white border border-zinc-200 rounded-2xl p-6 sm:p-10 shadow-sm space-y-6">
+        <div class="space-y-2 text-center">
+          <h1 class="text-xl font-semibold text-zinc-900">อัปโหลดไฟล์ e-Statement</h1>
+          <p class="text-sm text-zinc-500 leading-relaxed">
+            รองรับไฟล์ PDF จากแอปธนาคารบนมือถือและคอมพิวเตอร์ ถอดรหัสและจัดหมวดหมู่ในเครื่องของคุณโดยตรง
+          </p>
+        </div>
+
+        <label id="drop-zone"
+          class="cursor-pointer flex flex-col items-center justify-center border-2 border-dashed border-zinc-300 hover:border-zinc-900 rounded-2xl p-8 sm:p-12 bg-zinc-50/70 hover:bg-zinc-50 transition text-center">
+          <svg class="w-10 h-10 text-zinc-400 mb-3" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m6.75 12l-3-3m0 0l-3 3m3-3v6m-1.5-15H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+          </svg>
+          <span class="text-sm font-medium text-zinc-900">แตะเพื่อเลือกไฟล์ PDF หรือลากไฟล์มาวาง</span>
+          <span class="text-xs text-zinc-400 mt-1.5">ใช้งานได้ทั้งบน iPhone, iPad และ PC</span>
+          <input type="file" accept=".pdf" class="pdf-file-input hidden" />
+        </label>
+      </div>
+    </section>
+
+
+    <!-- หน้าแสดงผลและตรวจสอบข้อมูลหลังอัปโหลดไฟล์ (4 หน้าแยกกัน โล่งสบายตา) -->
+    <div id="workspace-view" class="hidden space-y-8">
+
+      <!-- =========================================================
+           หน้าที่ 1: ภาพรวมรายจ่าย (OVERVIEW PAGE)
+           ========================================================= -->
+      <div id="page-OVERVIEW" class="page-view space-y-8">
+
+        <!-- แบนเนอร์แจ้งเตือนเมื่อมีรายการรอระบุ (กดปุ๊บเด้งไปหน้าระบุยอดใหญ่ทันที) -->
+        <div id="overview-priority-banner" class="hidden bg-amber-50 border border-amber-200 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <div class="text-sm font-semibold text-amber-950">พบรายการที่ยังไม่ระบุหมวดหมู่</div>
+            <p class="text-xs text-amber-800 mt-0.5">
+              เราได้มัดรวมตามชื่อผู้รับและเรียงจากยอดเงินใหญ่สุดไว้ให้แล้ว เพื่อให้คุณระบุได้ง่ายโดยไม่ต้องไล่อ่านทีละบรรทัด
+            </p>
+          </div>
+          <button onclick="window.TangHai.switchPage('PRIORITY')"
+            class="shrink-0 px-4 py-2.5 rounded-xl bg-amber-900 hover:bg-amber-950 text-white text-xs font-semibold transition">
+            ไปหน้าระบุยอดใหญ่ →
+          </button>
+        </div>
+
+        <!-- การ์ดตัวเลขสรุป 4 ช่อง (เพิ่มพื้นที่ว่างให้อ่านง่ายบนทุกอุปกรณ์) -->
+        <section class="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5">
+          <div class="bg-white border border-zinc-200 rounded-2xl p-6 shadow-sm">
+            <div class="text-xs font-medium text-zinc-500">รายจ่ายใช้ชีวิตจริง (True Personal Spend)</div>
+            <div id="metric-expense" class="text-3xl font-bold text-zinc-900 tabular-nums tracking-tight mt-2">0.00</div>
+            <div id="metric-expense-sub" class="text-xs text-zinc-500 mt-2">หักโอนบัญชีตัวเองและเงินผ่านมือออกแล้ว</div>
+          </div>
+
+          <div class="bg-white border border-zinc-200 rounded-2xl p-6 shadow-sm">
+            <div class="text-xs font-medium text-zinc-500">ยอดเงินออกหน้าสเตทเมนต์ (Raw Outflow)</div>
+            <div id="metric-income" class="text-3xl font-bold text-zinc-900 tabular-nums tracking-tight mt-2">0.00</div>
+            <div id="metric-income-sub" class="text-xs text-zinc-500 mt-2">0 รายการ</div>
+          </div>
+
+          <div class="bg-white border border-zinc-200 rounded-2xl p-6 shadow-sm">
+            <div class="text-xs font-medium text-zinc-500">รายจ่ายช่วงดึก (00:00 – 05:00 น.)</div>
+            <div id="metric-net" class="text-2xl font-bold text-zinc-900 tabular-nums tracking-tight mt-2">0.00</div>
+            <div id="metric-net-sub" class="text-xs text-zinc-500 mt-2">0 ครั้ง</div>
+          </div>
+
+          <div class="bg-white border border-zinc-200 rounded-2xl p-6 shadow-sm">
+            <div class="text-xs font-medium text-zinc-500">รายการรอระบุหมวดหมู่</div>
+            <div id="metric-review" class="text-2xl font-bold text-amber-700 tabular-nums tracking-tight mt-2">0 รายการ</div>
+            <div id="metric-review-sub" class="text-xs text-zinc-500 mt-2">คัดกรองชื่อซ้ำอัตโนมัติ</div>
+          </div>
+        </section>
+
+        <!-- กล่อง AI สรุปพฤติกรรมการใช้เงินประจำเดือน -->
+        <section class="bg-white border border-zinc-200 rounded-2xl p-6 shadow-sm space-y-3">
+          <div class="flex items-center justify-between">
+            <h2 class="text-sm font-semibold text-zinc-900">สรุปภาพรวมพฤติกรรมการเงินจาก AI</h2>
+            <span class="text-[11px] text-zinc-400">บันทึกข้อมูลอัตโนมัติ (รีเฟรชหน้าเว็บข้อมูลไม่หาย)</span>
+          </div>
+          <ul id="ai-summary-list" class="space-y-2"></ul>
+        </section>
+
+        <!-- กราฟสัดส่วนรายจ่าย + ปลายทางที่โอนออกสูงสุด (2 คอลัมน์กว้างๆ สบายตา) -->
+        <section class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div class="bg-white border border-zinc-200 rounded-2xl p-6 shadow-sm space-y-5">
+            <div class="flex items-center justify-between">
+              <div>
+                <h2 class="text-base font-semibold text-zinc-900">สัดส่วนรายจ่ายจริงตามหมวดหมู่</h2>
+                <p class="text-xs text-zinc-500 mt-0.5">คลิกที่หมวดหมู่ใดก็ได้เพื่อดูรายการข้างใน (เรียงจากยอดใหญ่ไปเล็ก)</p>
+              </div>
+            </div>
+            <div id="category-list" class="space-y-2.5"></div>
+          </div>
+
+          <div class="bg-white border border-zinc-200 rounded-2xl p-6 shadow-sm space-y-4">
+            <div>
+              <h2 class="text-base font-semibold text-zinc-900">ปลายทางที่โอนออกสูงสุด 6 อันดับ</h2>
+              <p class="text-xs text-zinc-500 mt-0.5">รวมยอดโอนซ้ำไปยังร้านค้าหรือผู้รับเดียวกันตลอดทั้งเดือน</p>
+            </div>
+            <div id="top-recipients-list" class="divide-y divide-zinc-100"></div>
+          </div>
+        </section>
+      </div>
+
+      <!-- =========================================================
+           หน้าที่ 2: ระบุยอดใหญ่ก่อน (PRIORITY REVIEW PAGE)
+           ========================================================= -->
+      <div id="page-PRIORITY" class="page-view hidden space-y-6">
+        <section id="priority-queue-section" class="bg-white border border-zinc-200 rounded-2xl p-6 sm:p-8 shadow-sm space-y-5">
+          <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-zinc-100">
+            <div>
+              <div class="flex flex-wrap items-center gap-2.5">
+                <h2 class="text-lg font-semibold text-zinc-900">ระบุรายการที่ยังไม่ทราบหมวดหมู่ (เรียงจากยอดใหญ่สุด)</h2>
+                <span id="priority-queue-count" class="text-xs px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-900 font-medium"></span>
+              </div>
+              <p class="text-xs text-zinc-500 mt-1">
+                ระบบรวมยอดโอนให้ผู้รับคนเดิมไว้ในการ์ดเดียว และมีคำใบ้จาก AI ช่วยเดาจากยอดเงินและเวลาที่โอน
+              </p>
+            </div>
+
+            <!-- ช่องเพิ่มหมวดหมู่ของตัวเอง (Custom Category) -->
+            <div class="flex items-center gap-2 shrink-0">
+              <input id="custom-cat-input" type="text" placeholder="สร้างหมวดหมู่เพิ่ม เช่น ค่าหอ, เติมเกม..."
+                onkeydown="if(event.key==='Enter') window.TangHai.handleAddCustomCategory()"
+                class="w-56 bg-zinc-50 border border-zinc-200 rounded-xl px-3 py-2 text-xs text-zinc-900 placeholder-zinc-400 focus:outline-none focus:bg-white focus:border-zinc-900" />
+              <button onclick="window.TangHai.handleAddCustomCategory()"
+                class="px-3.5 py-2 rounded-xl border border-zinc-200 bg-white hover:bg-zinc-50 text-xs font-semibold text-zinc-800 transition shrink-0">
+                + เพิ่มหมวดหมู่
+              </button>
+            </div>
+          </div>
+          <div id="priority-queue-list" class="space-y-3"></div>
+        </section>
+      </div>
+
+      <!-- =========================================================
+           หน้าที่ 3: รายการธุรกรรมทั้งหมด (TRANSACTIONS PAGE)
+           รองรับทั้งตารางบน PC และการแสดงผลแบบการ์ดบน iPhone / iPad
+           ========================================================= -->
+      <div id="page-TRANSACTIONS" class="page-view hidden space-y-6">
+        <section class="bg-white border border-zinc-200 rounded-2xl shadow-sm overflow-hidden">
+          <div class="p-5 sm:p-6 border-b border-zinc-200 space-y-4">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <h2 class="text-lg font-semibold text-zinc-900">รายการธุรกรรมทั้งหมด</h2>
+                <p class="text-xs text-zinc-500 mt-0.5">
+                  ค่าเริ่มต้นเรียงจากยอดเงินมากไปน้อยเพื่อให้นึกออกง่าย สามารถสลับเรียงตามวัน-เวลาได้
+                </p>
+              </div>
+              <div class="w-full sm:w-72">
+                <input id="search-tx-input" type="text" placeholder="ค้นหาชื่อรายการ, วันที่ หรือหมายเหตุ..."
+                  class="w-full bg-zinc-50 border border-zinc-200 rounded-xl px-3.5 py-2 text-xs text-zinc-900 placeholder-zinc-400 focus:outline-none focus:bg-white focus:border-zinc-900" />
+              </div>
+            </div>
+
+            <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+              <div class="flex flex-wrap items-center gap-1.5">
+                <button data-filter="ALL" onclick="window.TangHai.setFilter('ALL')"
+                  class="filter-btn px-3.5 py-2 rounded-xl text-xs font-medium bg-zinc-900 text-white">
+                  ทั้งหมด (<span id="count-all">0</span>)
+                </button>
+                <button data-filter="NEEDS_INPUT" onclick="window.TangHai.setFilter('NEEDS_INPUT')"
+                  class="filter-btn px-3.5 py-2 rounded-xl text-xs font-medium bg-white text-zinc-600 hover:bg-zinc-100 border border-zinc-200">
+                  รอระบุเอง (<span id="count-unknown">0</span>)
+                </button>
+                <button data-filter="AI_GUESS" onclick="window.TangHai.setFilter('AI_GUESS')"
+                  class="filter-btn px-3.5 py-2 rounded-xl text-xs font-medium bg-white text-zinc-600 hover:bg-zinc-100 border border-zinc-200">
+                  เดาจากชื่อบริษัท (<span id="count-ai">0</span>)
+                </button>
+                <button data-filter="MEMORY" onclick="window.TangHai.setFilter('MEMORY')"
+                  class="filter-btn px-3.5 py-2 rounded-xl text-xs font-medium bg-white text-zinc-600 hover:bg-zinc-100 border border-zinc-200">
+                  จำจากสมุด (<span id="count-memory">0</span>)
+                </button>
+              </div>
+
+              <div class="flex flex-wrap items-center gap-3 text-xs">
+                <label class="inline-flex items-center gap-2 cursor-pointer text-zinc-600 select-none">
+                  <input type="checkbox" checked onchange="window.TangHai.toggleHideSelf(this.checked)"
+                    class="w-4 h-4 rounded border-zinc-300 text-zinc-900 focus:ring-0" />
+                  <span>ซ่อนโอนบัญชีตัวเอง</span>
+                </label>
+
+                <div class="flex items-center gap-1.5">
+                  <span class="text-zinc-400">เรียงตาม:</span>
+                  <select onchange="window.TangHai.setSortBy(this.value)"
+                    class="bg-zinc-50 border border-zinc-200 rounded-xl px-3 py-2 text-xs font-medium text-zinc-800 focus:outline-none focus:border-zinc-900">
+                    <option value="AMOUNT_DESC" selected>ยอดเงิน (มาก → น้อย)</option>
+                    <option value="DATE_ASC">วัน-เวลา (ตามสเตทเมนต์)</option>
+                    <option value="AMOUNT_ASC">ยอดเงิน (น้อย → มาก)</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- มุมมองตารางสำหรับ PC / iPad แนวนอน -->
+          <div class="hidden md:block overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+              <thead>
+                <tr class="bg-zinc-50/80 border-b border-zinc-200 text-xs font-medium text-zinc-500">
+                  <th class="py-3.5 px-5">วัน / เวลา</th>
+                  <th class="py-3.5 px-5">รายละเอียดรายการ</th>
+                  <th class="py-3.5 px-5 text-right">จำนวนเงิน / คงเหลือ</th>
+                  <th class="py-3.5 px-5 w-60">หมวดหมู่</th>
+                  <th class="py-3.5 px-5 w-96">บันทึกช่วยจำ & การจำค่า</th>
+                </tr>
+              </thead>
+              <tbody id="transaction-tbody"></tbody>
+            </table>
+          </div>
+
+          <!-- มุมมองการ์ดสำหรับ iPhone / มือถือ -->
+          <div id="transaction-mobile-cards" class="md:hidden divide-y divide-zinc-100"></div>
+        </section>
+      </div>
+
+      <!-- =========================================================
+           หน้าที่ 4: บัญชีของฉัน, รายการหารเพื่อน & สมุดจำชื่อ (ACCOUNTS PAGE)
+           ========================================================= -->
+      <div id="page-ACCOUNTS" class="page-view hidden space-y-6">
+        <section class="bg-white border border-zinc-200 rounded-2xl p-6 shadow-sm space-y-4">
+          <div>
+            <h2 class="text-base font-semibold text-zinc-900">การโอนย้ายระหว่างบัญชีตัวเอง & เงินผ่านบัญชี</h2>
+            <p class="text-xs text-zinc-500 mt-0.5">สรุปยอดโยกเงินเข้า-ออกระหว่างบัญชีที่มีชื่อของคุณเอง เพื่อไม่ให้ปนกับรายจ่ายจริง</p>
+          </div>
+          <div id="self-accounts-list" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+        </section>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <section class="bg-white border border-zinc-200 rounded-2xl p-6 shadow-sm space-y-4">
+            <div>
+              <h2 class="text-base font-semibold text-zinc-900">รายการหารเพื่อน & เงินโอนคืนที่พบ</h2>
+              <p class="text-xs text-zinc-500 mt-0.5">ตรวจจับอัตโนมัติจากยอดเงินโอนเข้า-ออกที่สัมพันธ์กันในวันเดียวกัน</p>
+            </div>
+            <div id="daily-spikes-list" class="divide-y divide-zinc-100"></div>
+          </section>
+
+          <section class="bg-white border border-zinc-200 rounded-2xl p-6 shadow-sm space-y-4">
+            <div>
+              <h2 class="text-base font-semibold text-zinc-900">สมุดช่วยจำชื่อร้าน (Saved Memory)</h2>
+              <p class="text-xs text-zinc-500 mt-0.5">รายชื่อบัญชีที่คุณเคยระบุไว้ ระบบจะจำไว้ใช้แยกอัตโนมัติในรอบถัดไป</p>
+            </div>
+            <div id="memory-list" class="space-y-2.5"></div>
+          </section>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <!-- แถบเมนูด้านล่างสำหรับ iPhone / มือถือ (Bottom Tab Bar) -->
+  <nav id="mobile-bottom-nav" class="hidden md:hidden fixed bottom-0 inset-x-0 z-40 bg-white/95 backdrop-blur border-t border-zinc-200 px-2 py-2">
+    <div class="grid grid-cols-4 gap-1 max-w-md mx-auto">
+      <button data-page="OVERVIEW" onclick="window.TangHai.switchPage('OVERVIEW')"
+        class="mobile-nav-btn py-2 px-1 rounded-xl text-xs font-semibold bg-zinc-900 text-white text-center transition">
+        ภาพรวม
+      </button>
+      <button data-page="PRIORITY" onclick="window.TangHai.switchPage('PRIORITY')"
+        class="mobile-nav-btn py-2 px-1 rounded-xl text-xs font-medium text-zinc-600 text-center transition">
+        ระบุยอดใหญ่ (<span id="mobile-badge-priority">0</span>)
+      </button>
+      <button data-page="TRANSACTIONS" onclick="window.TangHai.switchPage('TRANSACTIONS')"
+        class="mobile-nav-btn py-2 px-1 rounded-xl text-xs font-medium text-zinc-600 text-center transition">
+        รายการ
+      </button>
+      <button data-page="ACCOUNTS" onclick="window.TangHai.switchPage('ACCOUNTS')"
+        class="mobile-nav-btn py-2 px-1 rounded-xl text-xs font-medium text-zinc-600 text-center transition">
+        บัญชี & จำชื่อ
+      </button>
+    </div>
+  </nav>
+
+  <!-- หน้าต่างกรอกรหัสผ่านเพื่อปลดล็อกไฟล์ PDF -->
+  <div id="password-modal" class="hidden fixed inset-0 z-50 bg-zinc-900/40 backdrop-blur-[2px] flex items-center justify-center p-4">
+    <div class="w-full max-w-sm bg-white border border-zinc-200 rounded-2xl p-6 shadow-xl space-y-4">
+      <div>
+        <h3 class="text-sm font-semibold text-zinc-900">ไฟล์ PDF นี้มีการเข้ารหัสผ่าน</h3>
+        <p id="locked-file-name" class="text-xs text-zinc-500 mt-0.5 truncate"></p>
+      </div>
+
+      <p class="text-xs text-zinc-500 leading-relaxed">
+        กรุณากรอกรหัสผ่านเพื่อปลดล็อกเอกสาร (เช่น วันเดือนปีเกิดตามรูปแบบของธนาคาร) การถอดรหัสทำงานภายในเครื่องของคุณเท่านั้น
+      </p>
+
+      <div class="space-y-1.5">
+        <label class="text-xs font-medium text-zinc-700">รหัสผ่านเอกสาร</label>
+        <input id="pdf-password-input" type="password" placeholder="กรอกรหัสผ่าน..."
+          onkeydown="if(event.key==='Enter') window.TangHai.submitPdfPassword()"
+          class="w-full bg-white border border-zinc-300 rounded-lg px-3 py-2 text-xs text-zinc-900 focus:outline-none focus:border-zinc-900" />
+        <p id="password-error-msg" class="hidden text-xs text-rose-600 font-medium"></p>
+      </div>
+
+      <div class="flex items-center justify-end gap-2 pt-1">
+        <button onclick="window.TangHai.closePasswordModal()"
+          class="px-3.5 py-2 rounded-lg border border-zinc-200 bg-white hover:bg-zinc-50 text-xs font-medium text-zinc-700 transition">
+          ยกเลิก
+        </button>
+        <button onclick="window.TangHai.submitPdfPassword()"
+          class="px-3.5 py-2 rounded-lg bg-zinc-900 hover:bg-zinc-800 text-white text-xs font-medium transition">
+          ปลดล็อกไฟล์
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- หน้าต่างเจาะลึกรายการในแต่ละหมวดหมู่ (Category Drill-down Modal เรียงจากยอดใหญ่ลงมาเล็ก) -->
+  <div id="category-detail-modal" class="hidden fixed inset-0 z-50 bg-zinc-900/50 backdrop-blur-[2px] flex items-end sm:items-center justify-center p-0 sm:p-4">
+    <div class="w-full max-w-3xl max-h-[88vh] bg-white border border-zinc-200 rounded-t-2xl sm:rounded-2xl shadow-2xl flex flex-col overflow-hidden">
+      <div class="px-5 py-4 border-b border-zinc-200 flex items-center justify-between gap-3 shrink-0">
+        <div>
+          <div class="flex items-center gap-2">
+            <span id="cat-modal-dot" class="w-2.5 h-2.5 rounded-full bg-zinc-900"></span>
+            <h3 id="cat-modal-title" class="text-base font-semibold text-zinc-900">รายละเอียดหมวดหมู่</h3>
+          </div>
+          <p id="cat-modal-subtitle" class="text-xs text-zinc-500 mt-0.5 tabular-nums"></p>
+        </div>
+        <button onclick="window.TangHai.closeCategoryModal()"
+          class="px-3 py-1.5 rounded-lg border border-zinc-200 bg-white hover:bg-zinc-50 text-xs font-medium text-zinc-700 transition">
+          ปิดหน้าต่าง
+        </button>
+      </div>
+
+      <div class="p-5 overflow-y-auto space-y-6">
+        <!-- ส่วนที่ 1: สรุปตามชื่อผู้รับในหมวดนี้ เรียงจากยอดเงินรวมใหญ่สุด -> เล็กสุด -->
+        <div class="space-y-2.5">
+          <div class="text-xs font-semibold uppercase tracking-wider text-zinc-500">
+            สรุปตามชื่อร้าน / ผู้รับโอนในหมวดนี้ (เรียงจากยอดรวมมากสุด → น้อยสุด)
+          </div>
+          <div id="cat-modal-merchants" class="grid grid-cols-1 sm:grid-cols-2 gap-2.5"></div>
+        </div>
+
+        <!-- ส่วนที่ 2: รายการโอนรายครั้งในหมวดนี้ เรียงจากยอดใหญ่สุด -> เล็กสุด พร้อมเปลี่ยนหมวดหมู่ได้ทันที -->
+        <div class="space-y-2.5">
+          <div class="text-xs font-semibold uppercase tracking-wider text-zinc-500">
+            รายการโอนทั้งหมดในหมวดนี้ (เรียงจากยอดเงินมากสุด → น้อยสุด)
+          </div>
+          <div id="cat-modal-transactions" class="divide-y divide-zinc-100 border border-zinc-200 rounded-xl overflow-hidden"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- แถบขออนุญาตจัดเก็บข้อมูลและเงื่อนไขการใช้งาน (Storage & Privacy Consent Banner) -->
+  <div id="consent-banner" class="hidden fixed bottom-4 inset-x-4 z-50 max-w-2xl mx-auto bg-white border border-zinc-200 rounded-2xl p-4 sm:p-5 shadow-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div class="space-y-1">
+      <div class="text-xs font-semibold text-zinc-900">การอนุญาตจัดเก็บข้อมูลในอุปกรณ์ (Local Storage & Privacy)</div>
+      <p class="text-xs text-zinc-500 leading-relaxed">
+        เว็บนี้ประมวลผลไฟล์สเตทเมนต์ในเบราว์เซอร์ของคุณ 100% และขออนุญาตบันทึกผลการแยกหมวดหมู่ไว้ในเครื่องของคุณ เพื่อไม่ให้ข้อมูลสูญหายเมื่อกดรีเฟรชหน้าเว็บ
+      </p>
+    </div>
+    <button onclick="window.TangHai.acceptConsent()"
+      class="shrink-0 px-4 py-2.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-white text-xs font-semibold transition">
+      อนุญาตและใช้งานต่อ
+    </button>
+  </div>
+
+  <script src="js/sampleData.js"></script>
+  <script src="js/memoryStore.js"></script>
+  <script src="js/pdfParser.js"></script>
+  <script src="js/categorizer.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
