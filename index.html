@@ -411,22 +411,8 @@
         </button>
       </div>
 
-      <div class="p-5 overflow-y-auto space-y-6">
-        <!-- ส่วนที่ 1: สรุปตามชื่อผู้รับในหมวดนี้ เรียงจากยอดเงินรวมใหญ่สุด -> เล็กสุด -->
-        <div class="space-y-2.5">
-          <div class="text-xs font-semibold uppercase tracking-wider text-zinc-500">
-            สรุปตามชื่อร้าน / ผู้รับโอนในหมวดนี้ (เรียงจากยอดรวมมากสุด → น้อยสุด)
-          </div>
-          <div id="cat-modal-merchants" class="grid grid-cols-1 sm:grid-cols-2 gap-2.5"></div>
-        </div>
-
-        <!-- ส่วนที่ 2: รายการโอนรายครั้งในหมวดนี้ เรียงจากยอดใหญ่สุด -> เล็กสุด พร้อมเปลี่ยนหมวดหมู่ได้ทันที -->
-        <div class="space-y-2.5">
-          <div class="text-xs font-semibold uppercase tracking-wider text-zinc-500">
-            รายการโอนทั้งหมดในหมวดนี้ (เรียงจากยอดเงินมากสุด → น้อยสุด)
-          </div>
-          <div id="cat-modal-transactions" class="divide-y divide-zinc-100 border border-zinc-200 rounded-xl overflow-hidden"></div>
-        </div>
+      <div class="p-6 overflow-y-auto">
+        <div id="cat-modal-transactions" class="divide-y divide-zinc-100 border border-zinc-200 rounded-2xl overflow-hidden"></div>
       </div>
     </div>
   </div>

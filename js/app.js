@@ -211,38 +211,26 @@ function renderOverviewMetrics() {
   const lateTxs = txs.filter(t => t.debit > 0 && t.category !== 'SELF_TRANSFER' && isLateNightTime(t.time));
   const lateTotal = lateTxs.reduce((sum, t) => sum + t.debit, 0);
 
-  const ownerLabel = AppState.meta.accountName ? `${AppState.meta.accountName} (${AppState.meta.accountNo || ''})` : AppState.fileName;
-  document.getElementById('file-meta-title').textContent = ownerLabel || 'รายการเดินบัญชี';
-
-  const openStr = AppState.meta.openingBalance !== null ? `ยอดยกมา ${formatNumber(AppState.meta.openingBalance)}` : '';
-  const closeStr = AppState.meta.closingBalance !== null ? `คงเหลือ ${formatNumber(AppState.meta.closingBalance)}` : '';
+  const ownerLabel = AppState.meta.accountName || AppState.fileName || 'TangHai';
+  document.getElementById('file-meta-title').textContent = ownerLabel;
   document.getElementById('file-meta-sub').textContent =
-    [
-      AppState.meta.bankName || '',
-      AppState.meta.period || '',
-      `${AppState.meta.totalPages || 1} หน้า (${txs.length} รายการ)`,
-      openStr,
-      closeStr
-    ].filter(Boolean).join(' · ');
+    [AppState.meta.bankName || '', `${txs.length} รายการ`].filter(Boolean).join('  ·  ');
 
-  document.getElementById('metric-income').textContent = formatNumber(totalExpense);
-  document.getElementById('metric-income-sub').textContent =
-    `ยอดเงินเข้าหน้าสเตทเมนต์ +${formatNumber(totalIncome)} (${txs.filter(t => t.credit > 0).length} รายการ)`;
+  document.getElementById('metric-income').textContent = `฿${formatNumber(totalExpense)}`;
+  document.getElementById('metric-income-sub').textContent = `เงินโอนเข้า +฿${formatNumber(totalIncome)}`;
 
-  document.getElementById('metric-expense').textContent = formatNumber(truePersonalSpend);
-  document.getElementById('metric-expense-sub').textContent =
-    `หักโอนบัญชีตัวเองและเงินผ่านมือออก ${formatNumber(selfAndPassTotal)} บาท`;
+  document.getElementById('metric-expense').textContent = `฿${formatNumber(truePersonalSpend)}`;
+  document.getElementById('metric-expense-sub').textContent = `ไม่รวมโอนบัญชีตัวเอง ฿${formatNumber(selfAndPassTotal)}`;
 
   const netEl = document.getElementById('metric-net');
-  netEl.textContent = formatNumber(lateTotal);
-  netEl.className = 'text-2xl font-semibold tabular-nums tracking-tight mt-1 text-zinc-900';
-  document.getElementById('metric-net-sub').textContent =
-    `โอนช่วงดึก (00:00–05:00) จำนวน ${lateTxs.length} ครั้ง`;
+  netEl.textContent = `฿${formatNumber(lateTotal)}`;
+  netEl.className = 'text-2xl font-bold tabular-nums tracking-tight mt-2 text-zinc-900';
+  document.getElementById('metric-net-sub').textContent = `${lateTxs.length} รายการ (ช่วง 00:00 – 05:00 น.)`;
 
-  const uncatCount = txs.filter(t => t.category === 'UNKNOWN').length;
+  const uncatCount = AppState.priorityGroups.length;
   document.getElementById('metric-review').textContent = `${uncatCount} รายการ`;
   document.getElementById('metric-review-sub').textContent =
-    `คัดกรองกลุ่มชื่อซ้ำเหลือ ${stats.uniqueMerchantsSentToAI} ชื่อผู้รับ (ลดภาระ AI ${stats.savedApiPercent}%)`;
+    uncatCount > 0 ? 'กดไปหน้าระบุยอดใหญ่เพื่อจัดหมวดหมู่' : 'จัดหมวดหมู่ครบทุกรายการแล้ว';
 
   document.getElementById('count-all').textContent = txs.length;
   document.getElementById('count-unknown').textContent = uncatCount;
@@ -295,7 +283,7 @@ function renderCategoryBreakdown() {
   }).join('');
 }
 
-// เปิดหน้าต่างเจาะลึกหมวดหมู่ (แสดงทั้งยอดรวมตามชื่อร้าน และรายการโอนทั้งหมด เรียงจากยอดใหญ่สุด -> เล็กสุด)
+// เปิดหน้าต่างเจาะลึกหมวดหมู่ (แสดงรายการทั้งหมดในหมวดนั้น เรียงจากยอดเงินใหญ่สุด -> เล็กสุด แบบโปร่งสบายตา)
 window.TangHai.openCategoryModal = function(catKey) {
   const modal = document.getElementById('category-detail-modal');
   if (!modal) return;
@@ -308,40 +296,11 @@ window.TangHai.openCategoryModal = function(catKey) {
   const totalAmount = txsInCat.reduce((sum, t) => sum + (t.debit || t.credit || 0), 0);
 
   const dotEl = document.getElementById('cat-modal-dot');
-  if (dotEl) dotEl.className = `w-2.5 h-2.5 rounded-full ${cat.dot}`;
+  if (dotEl) dotEl.className = `w-3 h-3 rounded-full ${cat.dot}`;
   document.getElementById('cat-modal-title').textContent = cat.label;
   document.getElementById('cat-modal-subtitle').textContent =
-    `รวมทั้งหมด ${formatNumber(totalAmount)} บาท · ${txsInCat.length} รายการ (เรียงจากยอดเงินใหญ่สุดลงมาเล็กสุด)`;
+    `ทั้งหมด ${txsInCat.length} รายการ  ·  รวม ฿${formatNumber(totalAmount)}`;
 
-  // 1. สรุปแยกตามชื่อผู้รับในหมวดหมู่นี้ เรียงจากยอดรวมใหญ่สุด -> เล็กสุด
-  const merchantMap = {};
-  for (const tx of txsInCat) {
-    const key = tx.normKey || window.TangHai.MemoryStore.normalizeKey(tx.description);
-    if (!merchantMap[key]) {
-      merchantMap[key] = { name: key, alias: tx.userNote || '', total: 0, count: 0 };
-    }
-    merchantMap[key].total += tx.debit || tx.credit || 0;
-    merchantMap[key].count += 1;
-    if (tx.userNote) merchantMap[key].alias = tx.userNote;
-  }
-  const sortedMerchants = Object.values(merchantMap).sort((a, b) => b.total - a.total);
-
-  const merchantsEl = document.getElementById('cat-modal-merchants');
-  merchantsEl.innerHTML = sortedMerchants.map((m, idx) => `
-    <div class="p-3 rounded-xl bg-zinc-50 border border-zinc-200/80 flex items-center justify-between gap-2 text-xs">
-      <div class="min-w-0">
-        <div class="font-medium text-zinc-900 truncate">${idx + 1}. ${m.name}</div>
-        <div class="text-[11px] text-zinc-500 mt-0.5">
-          ${m.count} ครั้ง${m.alias ? ` · ช่วยจำ: ${m.alias}` : ''}
-        </div>
-      </div>
-      <div class="tabular-nums font-semibold text-zinc-900 shrink-0">
-        ${formatNumber(m.total)}
-      </div>
-    </div>
-  `).join('');
-
-  // 2. รายการโอนรายครั้งในหมวดนี้ เรียงจากยอดเงินใหญ่สุด -> เล็กสุด พร้อมเปลี่ยนหมวดได้ทันที
   const categoryOptionsHtml = selectedCat =>
     Object.values(window.TangHai.CATEGORIES)
       .map(c => `<option value="${c.id}" ${c.id === selectedCat ? 'selected' : ''}>${c.label}</option>`)
@@ -349,23 +308,25 @@ window.TangHai.openCategoryModal = function(catKey) {
 
   const txListEl = document.getElementById('cat-modal-transactions');
   txListEl.innerHTML = txsInCat.map((tx, idx) => `
-    <div class="p-3.5 bg-white hover:bg-zinc-50/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
-      <div class="min-w-0 space-y-0.5">
-        <div class="flex items-center gap-2">
-          <span class="text-zinc-400 font-mono text-[11px]">#${idx + 1}</span>
-          <span class="font-semibold text-zinc-900">${tx.description}</span>
+    <div class="p-4 sm:p-5 bg-white hover:bg-zinc-50/80 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div class="min-w-0 space-y-1.5">
+        <div class="flex items-center gap-2.5">
+          <span class="text-xs font-mono text-zinc-400">#${idx + 1}</span>
+          <span class="text-sm font-semibold text-zinc-900">${tx.description}</span>
         </div>
-        <div class="text-[11px] text-zinc-500 pl-5">
-          วันที่ ${tx.date} เวลา ${tx.time} · ${tx.sourceLabel}${tx.userNote ? ` · ช่วยจำ: ${tx.userNote}` : ''}
+        <div class="flex flex-wrap items-center gap-3 pl-6 text-xs text-zinc-500">
+          <span>วันที่ ${tx.date}</span>
+          <span>เวลา ${tx.time}</span>
+          ${tx.userNote ? `<span class="px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 font-medium">${tx.userNote}</span>` : ''}
         </div>
       </div>
 
-      <div class="flex items-center justify-between sm:justify-end gap-3 shrink-0">
-        <span class="text-sm font-bold tabular-nums text-zinc-900">
-          ${tx.credit > 0 ? `+${formatNumber(tx.credit)}` : `-${formatNumber(tx.debit)}`}
+      <div class="flex items-center justify-between sm:justify-end gap-4 shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-zinc-100">
+        <span class="text-base font-bold tabular-nums text-zinc-900">
+          ${tx.credit > 0 ? `+฿${formatNumber(tx.credit)}` : `-฿${formatNumber(tx.debit)}`}
         </span>
         <select onchange="window.TangHai.changeCategoryFromModal('${tx.id}', this.value, '${catKey}')"
-          class="bg-zinc-50 border border-zinc-200 rounded-lg px-2.5 py-1.5 text-xs text-zinc-800 focus:outline-none focus:border-zinc-900">
+          class="bg-zinc-50 border border-zinc-200 rounded-xl px-3 py-2 text-xs text-zinc-800 focus:outline-none focus:border-zinc-900 cursor-pointer">
           ${categoryOptionsHtml(tx.category)}
         </select>
       </div>
@@ -414,19 +375,19 @@ function renderTopRecipients() {
     const safeName = item.name.replace(/'/g, "\\'");
     return `
       <div onclick="window.TangHai.filterByRecipient('${safeName}')"
-        class="group flex items-center justify-between py-2.5 px-2 -mx-2 rounded-lg hover:bg-zinc-50 cursor-pointer border-b border-zinc-100 last:border-0 text-xs transition">
-        <div class="min-w-0 pr-3">
-          <div class="flex items-center gap-2">
-            <span class="text-zinc-400 font-mono w-4">${i + 1}.</span>
-            <span class="font-medium text-zinc-900 group-hover:underline truncate">${item.name}</span>
+        class="group flex items-center justify-between py-3.5 px-3 -mx-3 rounded-xl hover:bg-zinc-50 cursor-pointer transition">
+        <div class="min-w-0 pr-4 space-y-1">
+          <div class="flex items-center gap-2.5">
+            <span class="text-zinc-400 font-mono text-xs w-4">${i + 1}.</span>
+            <span class="text-sm font-medium text-zinc-900 group-hover:underline truncate">${item.name}</span>
           </div>
-          <div class="pl-6 text-[11px] text-zinc-500 mt-0.5">
-            ${item.count} ครั้ง · ${item.alias ? `ช่วยจำ: ${item.alias}` : cat.label}
+          <div class="pl-6 flex items-center gap-3 text-xs text-zinc-500">
+            <span>โอน ${item.count} ครั้ง</span>
+            <span>${item.alias || cat.label}</span>
           </div>
         </div>
-        <div class="tabular-nums font-semibold text-zinc-900 shrink-0 flex items-center gap-1.5">
-          <span>${formatNumber(item.total)}</span>
-          <span class="text-[11px] text-zinc-400 group-hover:text-zinc-900">→</span>
+        <div class="tabular-nums text-sm font-semibold text-zinc-900 shrink-0">
+          ฿${formatNumber(item.total)}
         </div>
       </div>
     `;
@@ -448,14 +409,14 @@ function renderDetectedInsights() {
 
   const events = AppState.insights || [];
   if (events.length === 0) {
-    container.innerHTML = `<div class="py-4 text-xs text-zinc-400">ไม่พบรายการหารกลุ่มหรือเงินผ่านมือ</div>`;
+    container.innerHTML = `<div class="py-6 text-xs text-zinc-400 text-center">ไม่พบรายการหารกลุ่มหรือเงินผ่านมือ</div>`;
     return;
   }
 
   container.innerHTML = events.map(ev => `
-    <div class="py-2.5 border-b border-zinc-100 last:border-0 text-xs space-y-0.5">
-      <div class="font-medium text-zinc-900">${ev.title}</div>
-      <div class="text-[11px] text-zinc-500 leading-relaxed">${ev.detail}</div>
+    <div class="py-4 space-y-1.5">
+      <div class="text-sm font-semibold text-zinc-900">${ev.title}</div>
+      <div class="text-xs text-zinc-500 leading-relaxed">${ev.detail}</div>
     </div>
   `).join('');
 }
@@ -469,9 +430,8 @@ function renderMemoryRules() {
 
   if (entries.length === 0) {
     container.innerHTML = `
-      <div class="py-6 text-center text-xs text-zinc-400">
-        ยังไม่มีรายชื่อที่บันทึกไว้ในสมุดช่วยจำ<br/>
-        เมื่อคุณกดปุ่ม "จำทุกบรรทัด" ในตาราง ระบบจะบันทึกชื่อบัญชีไว้ที่นี่เพื่อแยกให้อัตโนมัติในครั้งถัดไป
+      <div class="py-8 text-center text-xs text-zinc-400">
+        ยังไม่มีรายชื่อที่บันทึกไว้ในสมุดช่วยจำ
       </div>
     `;
     return;
@@ -480,13 +440,13 @@ function renderMemoryRules() {
   container.innerHTML = entries.map(([key, rule]) => {
     const cat = window.TangHai.CATEGORIES[rule.category] || window.TangHai.CATEGORIES.UNKNOWN;
     return `
-      <div class="flex items-center justify-between py-2 px-3 rounded-lg bg-zinc-50 border border-zinc-200/80 text-xs">
-        <div class="min-w-0 pr-2">
-          <div class="font-medium text-zinc-900 truncate">${rule.alias}</div>
-          <div class="text-[11px] text-zinc-500 truncate">${key} · ${cat.label}</div>
+      <div class="flex items-center justify-between p-3.5 rounded-xl bg-zinc-50 border border-zinc-200/80 text-xs">
+        <div class="min-w-0 pr-3 space-y-1">
+          <div class="text-sm font-medium text-zinc-900 truncate">${rule.alias}</div>
+          <div class="text-xs text-zinc-500 truncate">${key}  ·  ${cat.label}</div>
         </div>
         <button onclick="window.TangHai.removeMemoryRule('${key.replace(/'/g, "\\'")}')"
-          class="text-zinc-400 hover:text-rose-600 px-2 py-1 text-xs transition">
+          class="text-zinc-400 hover:text-rose-600 px-2.5 py-1.5 text-xs transition shrink-0">
           ลบ
         </button>
       </div>
@@ -500,25 +460,26 @@ function renderSelfAccountsFlow() {
 
   const list = AppState.selfAccounts || [];
   if (list.length === 0) {
-    container.innerHTML = `<div class="text-xs text-zinc-400 py-3">ไม่พบรายการโอนระหว่างบัญชีชื่อเดียวกัน</div>`;
+    container.innerHTML = `<div class="text-xs text-zinc-400 py-4">ไม่พบรายการโอนระหว่างบัญชีชื่อเดียวกัน</div>`;
     return;
   }
 
   container.innerHTML = list.map(acc => {
     const net = acc.inflow - acc.outflow;
     const netDesc = net >= 0
-      ? `ดึงเข้าสุทธิ +${formatNumber(net)}`
-      : `โอนออกสุทธิ -${formatNumber(Math.abs(net))}`;
+      ? `ดึงเข้าสุทธิ +฿${formatNumber(net)}`
+      : `โอนออกสุทธิ -฿${formatNumber(Math.abs(net))}`;
 
     return `
-      <div class="p-3 rounded-xl bg-zinc-50 border border-zinc-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
-        <div>
-          <div class="font-semibold text-zinc-900">${acc.accountLabel}</div>
-          <div class="text-[11px] text-zinc-500 mt-0.5">
-            โอนเข้า ${acc.inCount} ครั้ง (+${formatNumber(acc.inflow)}) · โอนออก ${acc.outCount} ครั้ง (-${formatNumber(acc.outflow)})
+      <div class="p-4 sm:p-5 rounded-2xl bg-zinc-50 border border-zinc-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div class="space-y-1.5">
+          <div class="text-sm font-semibold text-zinc-900">${acc.accountLabel}</div>
+          <div class="flex flex-wrap items-center gap-4 text-xs text-zinc-500">
+            <span>โอนเข้า ${acc.inCount} ครั้ง (+฿${formatNumber(acc.inflow)})</span>
+            <span>โอนออก ${acc.outCount} ครั้ง (-฿${formatNumber(acc.outflow)})</span>
           </div>
         </div>
-        <div class="tabular-nums font-semibold ${net >= 0 ? 'text-emerald-700' : 'text-zinc-700'}">
+        <div class="tabular-nums text-sm font-semibold ${net >= 0 ? 'text-emerald-700' : 'text-zinc-700'}">
           ${netDesc}
         </div>
       </div>
@@ -532,13 +493,13 @@ function renderPriorityQueue() {
   if (!container) return;
 
   const groups = AppState.priorityGroups || [];
-  if (badge) badge.textContent = `${groups.length} รายชื่อผู้รับ`;
+  if (badge) badge.textContent = `${groups.length} รายการ`;
 
   if (groups.length === 0) {
     container.innerHTML = `
-      <div class="py-12 text-center space-y-2">
+      <div class="py-14 text-center space-y-2">
         <div class="text-sm font-semibold text-emerald-700">ระบุหมวดหมู่ครบทุกรายการแล้ว</div>
-        <p class="text-xs text-zinc-500">ไม่มีรายการค้างตรวจสอบ สามารถดูสรุปภาพรวมหรือส่งออกไฟล์ CSV ได้ทันที</p>
+        <p class="text-xs text-zinc-500">ไม่มีรายการค้างตรวจสอบ</p>
       </div>
     `;
     return;
@@ -550,57 +511,65 @@ function renderPriorityQueue() {
     .join('');
 
   container.innerHTML = groups.map((g, idx) => `
-    <div class="p-4 sm:p-5 rounded-2xl bg-zinc-50 border border-zinc-200 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-      <div class="min-w-0 space-y-1">
-        <div class="flex flex-wrap items-center gap-2">
-          <span class="px-2.5 py-0.5 rounded-md bg-zinc-900 text-white text-xs font-semibold tabular-nums">อันดับ ${idx + 1} · -${formatNumber(g.totalAmount)} บาท</span>
-          <span class="text-sm font-semibold text-zinc-900">${g.normKey}</span>
-          <span class="text-xs text-zinc-500">(${g.count} ครั้ง)</span>
+    <div class="p-5 sm:p-6 rounded-2xl bg-zinc-50/80 border border-zinc-200 flex flex-col lg:flex-row lg:items-center justify-between gap-5">
+      <div class="min-w-0 space-y-2">
+        <div class="flex flex-wrap items-center gap-3">
+          <span class="px-2.5 py-1 rounded-lg bg-zinc-900 text-white text-xs font-semibold tabular-nums">-฿${formatNumber(g.amount)}</span>
+          <span class="text-sm font-semibold text-zinc-900">${g.description}</span>
+          ${g.repeatCount > 1 ? `<span class="text-[11px] px-2 py-0.5 rounded-md bg-amber-100 text-amber-800 font-medium">ชื่อซ้ำ ${g.repeatCount} รายการ</span>` : ''}
         </div>
-        <div class="text-xs text-zinc-500">
-          เวลาที่โอน: ${g.dates.join(', ')}${g.count > 3 ? ' ...' : ''}
-          ${g.autoHint ? `<span class="ml-2 text-teal-700 font-medium">(${g.autoHint})</span>` : ''}
+        <div class="flex flex-wrap items-center gap-4 text-xs text-zinc-500">
+          <span>วันที่ ${g.date}</span>
+          <span>เวลา ${g.time}</span>
+          ${g.autoHint ? `<span class="text-teal-700 font-medium">${g.autoHint}</span>` : ''}
         </div>
       </div>
 
-      <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 shrink-0">
-        <select id="pq-cat-${idx}" class="bg-white border border-zinc-300 rounded-xl px-3 py-2 text-xs text-zinc-900 focus:outline-none focus:border-zinc-900">
+      <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 shrink-0">
+        <select id="pq-cat-${idx}" class="bg-white border border-zinc-300 rounded-xl px-3.5 py-2.5 text-xs text-zinc-900 focus:outline-none focus:border-zinc-900">
           ${categoryOptionsHtml}
         </select>
-        <input id="pq-note-${idx}" type="text" placeholder="ช่วยจำ เช่น ค่าหอ, ร้านข้าว..."
-          class="sm:w-48 bg-white border border-zinc-300 rounded-xl px-3 py-2 text-xs text-zinc-900 placeholder-zinc-400 focus:outline-none focus:border-zinc-900" />
-        <button onclick="window.TangHai.savePriorityGroup(${idx}, '${g.sampleTxId}')"
-          class="px-4 py-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-white text-xs font-semibold transition shrink-0">
-          บันทึก (${g.count} รายการ)
+        <input id="pq-note-${idx}" type="text" placeholder="ช่วยจำ (ถ้ามี)..."
+          class="sm:w-44 bg-white border border-zinc-300 rounded-xl px-3.5 py-2.5 text-xs text-zinc-900 placeholder-zinc-400 focus:outline-none focus:border-zinc-900" />
+        <button onclick="window.TangHai.savePriorityGroup(${idx}, '${g.txId}')"
+          class="px-4 py-2.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-white text-xs font-semibold transition shrink-0">
+          บันทึก
         </button>
       </div>
     </div>
   `).join('');
 }
 
-window.TangHai.savePriorityGroup = function(groupIdx, sampleTxId) {
-  const tx = AppState.rawTransactions.find(t => t.id === sampleTxId);
+window.TangHai.savePriorityGroup = function(groupIdx, txId) {
+  const tx = AppState.rawTransactions.find(t => t.id === txId);
   if (!tx) return;
 
   const catEl = document.getElementById(`pq-cat-${groupIdx}`);
   const noteEl = document.getElementById(`pq-note-${groupIdx}`);
   const newCategory = catEl ? catEl.value : 'FOOD';
   const newAlias = noteEl ? noteEl.value.trim() : '';
-
-  const saved = window.TangHai.MemoryStore.saveRule(tx.description, newCategory, newAlias);
   const normKey = window.TangHai.MemoryStore.normalizeKey(tx.description);
+  const isGeneric = /TRUE MONEY|K PLUS W|LINE PAY|CARDLESS ATM|INTERNET|KTB/i.test(normKey);
 
-  let updatedCount = 0;
-  AppState.rawTransactions = AppState.rawTransactions.map(item => {
-    if (window.TangHai.MemoryStore.normalizeKey(item.description) === normKey) {
-      updatedCount++;
-      return { ...item, rowCategoryOverride: null, userNote: newAlias || item.userNote };
-    }
-    return item;
-  });
-
-  runAnalysisAndRender();
-  notify(`ระบุ "${saved.key}" เรียบร้อย (เคลียร์พร้อมกัน ${updatedCount} รายการ)`);
+  if (isGeneric) {
+    AppState.rawTransactions = AppState.rawTransactions.map(item =>
+      item.id === txId ? { ...item, rowCategoryOverride: newCategory, userNote: newAlias || item.userNote } : item
+    );
+    runAnalysisAndRender();
+    notify('บันทึกรายการเรียบร้อยแล้ว');
+  } else {
+    const saved = window.TangHai.MemoryStore.saveRule(tx.description, newCategory, newAlias);
+    let updatedCount = 0;
+    AppState.rawTransactions = AppState.rawTransactions.map(item => {
+      if (window.TangHai.MemoryStore.normalizeKey(item.description) === normKey) {
+        updatedCount++;
+        return { ...item, rowCategoryOverride: null, userNote: newAlias || item.userNote };
+      }
+      return item;
+    });
+    runAnalysisAndRender();
+    notify(`บันทึก "${saved.key}" เรียบร้อย (อัปเดตพร้อมกัน ${updatedCount} รายการ)`);
+  }
 };
 
 function renderTransactionTable() {

@@ -206,20 +206,51 @@ window.TangHai.Categorizer = {
     };
   },
 
+  /**
+   * ดึงรายการที่ยังไม่ระบุหมวดหมู่ (UNKNOWN) ทั้งหมด เรียงลำดับจาก "ยอดเงินมากสุด -> น้อยสุด"
+   * เพื่อให้จำนวนรายการตรงกับตัวเลขที่แสดงบนป้ายแจ้งเตือน 100% (ไม่ยุบซ่อนจนผู้ใช้สับสน)
+   */
+  buildPriorityUnknownGroups(transactions) {
+    const unknownTxs = transactions.filter(tx => tx.category === 'UNKNOWN' && tx.debit > 0);
+
+    // นับว่าแต่ละชื่อผู้รับมีโอนซ้ำกี่ครั้งในกลุ่มที่ยังไม่ระบุ
+    const freqMap = {};
+    for (const tx of unknownTxs) {
+      const key = tx.normKey || window.TangHai.MemoryStore.normalizeKey(tx.description);
+      freqMap[key] = (freqMap[key] || 0) + 1;
+    }
+
+    return unknownTxs
+      .map(tx => {
+        const key = tx.normKey || window.TangHai.MemoryStore.normalizeKey(tx.description);
+        return {
+          txId: tx.id,
+          normKey: key,
+          description: tx.description,
+          amount: tx.debit,
+          date: tx.date,
+          time: tx.time,
+          repeatCount: freqMap[key] || 1,
+          autoHint: tx.autoHint || ''
+        };
+      })
+      .sort((a, b) => b.amount - a.amount);
+  },
+
   generateAIContextHint(tx) {
     const amt = tx.debit || 0;
     const hour = parseInt((tx.time || '12:00').split(':')[0], 10);
 
     if (amt <= 65 && hour >= 6 && hour <= 21) {
-      return 'AI วิเคราะห์จากยอดและเวลา: ยอดย่อย 14–65 บาทช่วงมื้ออาหาร น่าจะเป็นร้านอาหารตามสั่ง/เครื่องดื่ม/วินที่สแกนเข้าชื่อบุคคล';
+      return 'AI คาดว่า: ร้านอาหาร / เครื่องดื่ม / วิน (ยอดย่อยช่วงเวลาอาหาร)';
     }
     if (amt > 65 && amt <= 250) {
-      return 'AI วิเคราะห์จากยอดและเวลา: ยอดระดับ 70–250 บาท น่าจะเป็นค่าอาหารมื้อหลัก หารค่าของกับเพื่อน หรือซื้อของใช้';
+      return 'AI คาดว่า: มื้ออาหารหลัก / หารค่าของกับเพื่อน';
     }
     if (amt >= 1000) {
-      return 'AI วิเคราะห์จากยอดและเวลา: ยอดโอนหลักพันให้บุคคล อาจเป็นค่าเช่า/ค่าหอ ค่าของชิ้นใหญ่ หรือโอนคืนเพื่อน';
+      return 'AI คาดว่า: ค่าหอพัก / ของชิ้นใหญ่ / โอนคืนเพื่อน';
     }
-    return 'AI วิเคราะห์จากยอดและเวลา: รายการโอนให้บุคคลหรือชำระออนไลน์ แนะนำให้เลือกหมวดหมู่ด้านขวา';
+    return 'AI คาดว่า: โอนให้บุคคล / ชำระออนไลน์';
   },
 
   buildAIMonthlySummary(transactions) {
@@ -231,21 +262,21 @@ window.TangHai.Categorizer = {
     const walletTotal = walletTxs.reduce((s, t) => s + t.debit, 0);
     if (walletTxs.length > 0 && totalSpend > 0) {
       const pct = Math.round((walletTotal / totalSpend) * 100);
-      bullets.push(`มีการเติมเงินเข้า Wallet (TrueMoney / K Plus / LINE Pay) รวม ${walletTxs.length} ครั้ง เป็นเงิน ${walletTotal.toLocaleString('th-TH', { minimumFractionDigits: 2 })} บาท (${pct}% ของรายจ่ายจริง) ซึ่งเป็นจุดที่เงินไหลออกบ่อยที่สุด`);
+      bullets.push(`เติมเงิน Wallet รวม ${walletTxs.length} ครั้ง (${walletTotal.toLocaleString('th-TH', { minimumFractionDigits: 2 })} บาท คิดเป็น ${pct}% ของรายจ่ายจริง)`);
     }
 
     const foodTxs = debits.filter(t => t.category === 'FOOD');
     const foodTotal = foodTxs.reduce((s, t) => s + t.debit, 0);
     if (foodTxs.length > 0) {
-      bullets.push(`ค่าอาหารและเครื่องดื่มมี ${foodTxs.length} ครั้ง รวม ${foodTotal.toLocaleString('th-TH', { minimumFractionDigits: 2 })} บาท (เฉลี่ยครั้งละ ${Math.round(foodTotal / foodTxs.length)} บาท)`);
+      bullets.push(`ค่าอาหารและเครื่องดื่ม ${foodTxs.length} ครั้ง รวม ${foodTotal.toLocaleString('th-TH', { minimumFractionDigits: 2 })} บาท (เฉลี่ยมื้อละ ${Math.round(foodTotal / foodTxs.length)} บาท)`);
     }
 
     const unknownTxs = debits.filter(t => t.category === 'UNKNOWN');
     const unknownTotal = unknownTxs.reduce((s, t) => s + t.debit, 0);
     if (unknownTxs.length > 0) {
-      bullets.push(`มีรายการโอนเข้าชื่อบุคคลที่ไม่ระบุชื่อร้านอีก ${unknownTxs.length} รายการ (รวม ${unknownTotal.toLocaleString('th-TH', { minimumFractionDigits: 2 })} บาท) สามารถกดเลือกหมวดหมู่ในหน้า "ระบุยอดใหญ่" เพื่อให้ระบบจำไว้ใช้รอบหน้าได้ทันที`);
+      bullets.push(`รอระบุหมวดหมู่ ${unknownTxs.length} รายการ (รวม ${unknownTotal.toLocaleString('th-TH', { minimumFractionDigits: 2 })} บาท)`);
     } else {
-      bullets.push(`รายการทั้งหมดถูกจัดหมวดหมู่ครบ 100% เรียบร้อยแล้ว!`);
+      bullets.push(`จัดหมวดหมู่ครบทุกรายการ 100% แล้ว`);
     }
 
     return bullets;
@@ -292,36 +323,6 @@ window.TangHai.Categorizer = {
     }
 
     return Object.values(map).sort((a, b) => (b.inflow + b.outflow) - (a.inflow + a.outflow));
-  },
-
-  /**
-   * จัดกลุ่มรายการที่ยังไม่ระบุหมวดหมู่ (UNKNOWN) ตามชื่อผู้รับ
-   * และเรียงลำดับจาก "ยอดเงินรวมสูงสุด -> น้อยสุด" เพื่อให้เจ้าของไล่ระบุยอดใหญ่ก่อนได้ง่ายที่สุด
-   */
-  buildPriorityUnknownGroups(transactions) {
-    const groups = {};
-    for (const tx of transactions) {
-      if (tx.category !== 'UNKNOWN' || tx.debit <= 0) continue;
-      const key = tx.normKey || window.TangHai.MemoryStore.normalizeKey(tx.description);
-      if (!groups[key]) {
-        groups[key] = {
-          normKey: key,
-          sampleTxId: tx.id,
-          description: tx.description,
-          totalAmount: 0,
-          count: 0,
-          dates: [],
-          autoHint: tx.autoHint || ''
-        };
-      }
-      groups[key].totalAmount += tx.debit;
-      groups[key].count += 1;
-      if (groups[key].dates.length < 3) {
-        groups[key].dates.push(`${tx.date} (${tx.time})`);
-      }
-    }
-
-    return Object.values(groups).sort((a, b) => b.totalAmount - a.totalAmount);
   },
 
   detectSplitsAndPassThroughs(txs, ownerCoreName = '') {
