@@ -266,9 +266,6 @@ window.TangHai.Categorizer = {
   },
 
   async runGeminiLLMAnalysis(rawTransactions) {
-    const apiKey = this.getApiKey();
-    if (!apiKey) throw new Error('ไม่พบ Gemini API Key');
-
     const aiCache = getAICache();
     const itemsToAsk = [];
     const seenKeys = new Set();
@@ -296,7 +293,34 @@ window.TangHai.Categorizer = {
       return { cached: true, count: 0 };
     }
 
-    const promptText = `คุณคือผู้เชี่ยวชาญวิเคราะห์สเตทเมนต์ธนาคารไทย
+    let parsed = null;
+
+    // 1. ลองเรียกผ่าน Backend Serverless API (/api/gemini บน Vercel) ก่อน เพื่อให้ทุกคนใช้งานได้ทันทีโดยไม่ต้องกรอกคีย์
+    if (window.location.protocol.startsWith('http')) {
+      try {
+        const serverRes = await fetch('/api/gemini', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ items: itemsToAsk })
+        });
+        if (serverRes.ok) {
+          parsed = await serverRes.json();
+        }
+      } catch (e) {
+        // กรณีไม่ได้รันบน Vercel จะสลับไปใช้คีย์ในเครื่องด้านล่างอัตโนมัติ
+      }
+    }
+
+    // 2. Fallback: กรณีเปิดไฟล์รันในเครื่องตัวเอง (file://) หรือทดสอบด้วยคีย์ใน Local Storage
+    if (!parsed) {
+      const apiKey = this.getApiKey();
+      if (!apiKey) {
+        const err = new Error('NEED_API_KEY');
+        err.code = 'NEED_API_KEY';
+        throw err;
+      }
+
+      const promptText = `คุณคือผู้เชี่ยวชาญวิเคราะห์สเตทเมนต์ธนาคารไทย
 งานที่ 1: วิเคราะห์รายการโอนเงินต่อไปนี้ แล้วเดาหมวดหมู่และเขียนคำใบ้ภาษาไทยสั้นๆ (ไม่เกิน 7 คำ)
 กฎสำคัญ:
 - ถ้าเป็นชื่อบริษัท/ร้านค้า ให้เลือก category จาก [FOOD, GROCERY, TRANSPORT, SHOPPING, EDUCATION_HEALTH, BILLS, WALLET]
@@ -309,27 +333,28 @@ window.TangHai.Categorizer = {
 ตอบกลับเป็น JSON เท่านั้น:
 {"items":[{"key":"...","category":"...","hint":"..."}],"summaryBullets":["...","...","..."]}`;
 
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(apiKey)}`;
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: promptText }] }],
-        generationConfig: {
-          responseMimeType: 'application/json',
-          thinkingConfig: { thinkingBudget: 0 }
-        }
-      })
-    });
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(apiKey)}`;
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: promptText }] }],
+          generationConfig: {
+            responseMimeType: 'application/json',
+            thinkingConfig: { thinkingBudget: 0 }
+          }
+        })
+      });
 
-    if (!response.ok) {
-      throw new Error(`Gemini API Error (${response.status})`);
+      if (!response.ok) {
+        throw new Error(`Gemini API Error (${response.status})`);
+      }
+
+      const data = await response.json();
+      parsed = JSON.parse(data?.candidates?.[0]?.content?.parts?.[0]?.text || '{}');
     }
 
-    const data = await response.json();
-    const parsed = JSON.parse(data?.candidates?.[0]?.content?.parts?.[0]?.text || '{}');
-
-    if (Array.isArray(parsed.items)) {
+    if (Array.isArray(parsed?.items)) {
       for (const item of parsed.items) {
         if (item.key) {
           aiCache.merchants[item.key] = {
@@ -339,7 +364,7 @@ window.TangHai.Categorizer = {
         }
       }
     }
-    if (Array.isArray(parsed.summaryBullets) && parsed.summaryBullets.length > 0) {
+    if (Array.isArray(parsed?.summaryBullets) && parsed.summaryBullets.length > 0) {
       aiCache.summary = parsed.summaryBullets;
     }
 

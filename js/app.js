@@ -195,12 +195,6 @@ function updateModeSwitcherUI() {
 window.TangHai.setAnalysisMode = async function(mode) {
   if (AppState.isAiLoading) return;
 
-  if (mode === 'AI' && !window.TangHai.Categorizer.getApiKey()) {
-    document.getElementById('apikey-modal')?.classList.remove('hidden');
-    setTimeout(() => document.getElementById('gemini-apikey-input')?.focus(), 50);
-    return;
-  }
-
   AppState.analysisMode = mode;
   localStorage.setItem('tanghai_analysis_mode', mode);
   updateModeSwitcherUI();
@@ -216,6 +210,14 @@ window.TangHai.setAnalysisMode = async function(mode) {
       notify(res.cached ? 'สลับเป็นโหมด Gemini AI เรียบร้อย (ดึงจากหน่วยความจำ)' : 'Gemini 2.5 Flash วิเคราะห์สำเร็จ!');
     } catch (err) {
       AppState.isAiLoading = false;
+      if (err.code === 'NEED_API_KEY') {
+        AppState.analysisMode = 'BASIC';
+        localStorage.setItem('tanghai_analysis_mode', 'BASIC');
+        updateModeSwitcherUI();
+        document.getElementById('apikey-modal')?.classList.remove('hidden');
+        setTimeout(() => document.getElementById('gemini-apikey-input')?.focus(), 50);
+        return;
+      }
       runAnalysisAndRender();
       notify(`หมายเหตุ: ${err.message}`);
     }
