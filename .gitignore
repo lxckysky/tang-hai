@@ -1,0 +1,7 @@
+# ป้องกันไม่ให้อัปโหลดไฟล์ PDF สเตทเมนต์ส่วนตัวขึ้น GitHub เด็ดขาด
+*.pdf
+_test_pdf.html
+_out.txt
+_parsed_dump.json
+.DS_Store
+node_modules/
