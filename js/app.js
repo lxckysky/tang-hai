@@ -11,16 +11,18 @@ const CONSENT_STORAGE_KEY = 'tanghai_consent_accepted_v1';
 
 const AppState = {
   fileName: '',
-  meta: { totalPages: 0, openingBalance: null, closingBalance: null },
+  meta: { totalPages: 0, openingBalance: null, closingBalance: null, ownerNames: [] },
+  uploadedFiles: [], // เก็บรายการไฟล์สเตทเมนต์ที่อัปโหลดเข้ามาทั้งหมด (รองรับหลายธนาคาร)
   rawTransactions: [],
   transactions: [],
-  insights: [],
+  timeBreakdown: [],
   aiSummaryBullets: [],
   selfAccounts: [],
   priorityGroups: [],
   stats: null,
-  analysisMode: localStorage.getItem('tanghai_analysis_mode') || 'BASIC', // 'BASIC' หรือ 'AI'
+  analysisMode: localStorage.getItem('tanghai_analysis_mode') || 'BASIC',
   isAiLoading: false,
+  isAppendMode: false,
   activeFilter: 'ALL',
   sortBy: 'AMOUNT_DESC',
   hideSelfTransfers: true,
@@ -34,6 +36,7 @@ function saveSessionToStorage() {
     const payload = {
       fileName: AppState.fileName,
       meta: AppState.meta,
+      uploadedFiles: AppState.uploadedFiles,
       rawTransactions: AppState.rawTransactions
     };
     localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(payload));
@@ -49,7 +52,8 @@ function restoreSessionFromStorage() {
     const data = JSON.parse(raw);
     if (data && Array.isArray(data.rawTransactions) && data.rawTransactions.length > 0) {
       AppState.fileName = data.fileName || 'รายการเดินบัญชีที่บันทึกไว้';
-      AppState.meta = data.meta || { totalPages: 1, openingBalance: null, closingBalance: null };
+      AppState.meta = data.meta || { totalPages: 1, openingBalance: null, closingBalance: null, ownerNames: [] };
+      AppState.uploadedFiles = Array.isArray(data.uploadedFiles) ? data.uploadedFiles : [];
       AppState.rawTransactions = data.rawTransactions;
       runAnalysisAndRender(false);
       return true;
@@ -64,6 +68,7 @@ window.TangHai.clearSession = function() {
   localStorage.removeItem(SESSION_STORAGE_KEY);
   AppState.rawTransactions = [];
   AppState.transactions = [];
+  AppState.uploadedFiles = [];
   document.getElementById('workspace-view')?.classList.add('hidden');
   document.getElementById('header-actions')?.classList.add('hidden');
   document.getElementById('desktop-nav')?.classList.add('hidden');
@@ -72,6 +77,24 @@ window.TangHai.clearSession = function() {
   document.getElementById('file-meta-title').textContent = 'TangHai';
   document.getElementById('file-meta-sub').textContent = 'ระบบวิเคราะห์รายการเดินบัญชี';
   notify('ล้างข้อมูลสเตทเมนต์เรียบร้อย พร้อมอัปโหลดไฟล์ใหม่');
+};
+
+window.TangHai.loadSampleData = function() {
+  const sample = window.TangHai.DEMO_STATEMENT_DATA;
+  if (!sample) return;
+  const fileId = 'file-demo';
+  AppState.fileName = sample.fileName;
+  AppState.meta = { ...sample.meta, ownerNames: [sample.meta.accountName] };
+  AppState.uploadedFiles = [{
+    fileId,
+    fileName: sample.fileName,
+    bankName: sample.meta.bankName || 'SCB',
+    accountName: sample.meta.accountName || '',
+    txCount: sample.transactions.length
+  }];
+  AppState.rawTransactions = sample.transactions.map(t => ({ ...t, sourceFileId: fileId }));
+  runAnalysisAndRender();
+  notify('โหลดข้อมูลสเตทเมนต์ตัวอย่างเรียบร้อยแล้ว');
 };
 
 window.TangHai.acceptConsent = function() {
@@ -129,7 +152,7 @@ function runAnalysisAndRender(shouldSave = true) {
     AppState.analysisMode
   );
   AppState.transactions = result.transactions;
-  AppState.insights = result.insights || [];
+  AppState.timeBreakdown = result.timeBreakdown || [];
   AppState.aiSummaryBullets = result.aiSummaryBullets || [];
   AppState.selfAccounts = result.selfAccounts || [];
   AppState.priorityGroups = result.priorityGroups || [];
@@ -159,15 +182,48 @@ function runAnalysisAndRender(shouldSave = true) {
   }
 
   renderOverviewMetrics();
+  renderUploadedFilesBar();
   renderAISummary();
   renderSelfAccountsFlow();
   renderPriorityQueue();
   renderCategoryBreakdown();
   renderTopRecipients();
-  renderDetectedInsights();
+  renderTimeBreakdown();
   renderMemoryRules();
   renderTransactionTable();
 }
+
+function renderUploadedFilesBar() {
+  const container = document.getElementById('uploaded-files-bar');
+  if (!container) return;
+
+  const files = AppState.uploadedFiles || [];
+  if (files.length === 0) {
+    container.innerHTML = '';
+    return;
+  }
+
+  container.innerHTML = files.map(f => `
+    <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white border border-zinc-200 text-xs shadow-sm">
+      <span class="px-1.5 py-0.5 rounded bg-zinc-900 text-white font-semibold text-[10px]">${f.bankName || 'BANK'}</span>
+      <span class="font-medium text-zinc-800 truncate max-w-[180px]">${f.fileName}</span>
+      <span class="text-zinc-400">(${f.txCount} รายการ)</span>
+      ${files.length > 1 ? `<button onclick="window.TangHai.removeUploadedFile('${f.fileId}')" class="text-zinc-400 hover:text-rose-600 ml-1" title="เอาไฟล์นี้ออก">✕</button>` : ''}
+    </div>
+  `).join('');
+}
+
+window.TangHai.removeUploadedFile = function(fileId) {
+  AppState.uploadedFiles = AppState.uploadedFiles.filter(f => f.fileId !== fileId);
+  AppState.rawTransactions = AppState.rawTransactions.filter(t => t.sourceFileId !== fileId);
+  if (AppState.rawTransactions.length === 0) {
+    window.TangHai.clearSession();
+    return;
+  }
+  AppState.meta.ownerNames = AppState.uploadedFiles.map(f => f.accountName).filter(Boolean);
+  runAnalysisAndRender();
+  notify('นำไฟล์สเตทเมนต์ออกเรียบร้อยแล้ว');
+};
 
 function updateModeSwitcherUI() {
   const isAI = AppState.analysisMode === 'AI';
@@ -485,22 +541,27 @@ window.TangHai.filterByRecipient = function(recipientName) {
   window.TangHai.switchPage('TRANSACTIONS');
 };
 
-function renderDetectedInsights() {
+function renderTimeBreakdown() {
   const container = document.getElementById('daily-spikes-list');
   if (!container) return;
 
-  const events = AppState.insights || [];
-  if (events.length === 0) {
-    container.innerHTML = `<div class="py-6 text-xs text-zinc-400 text-center">ไม่พบรายการหารกลุ่มหรือเงินผ่านมือ</div>`;
-    return;
-  }
+  const periods = AppState.timeBreakdown || [];
+  const totalSpend = periods.reduce((s, p) => s + p.total, 0) || 1;
 
-  container.innerHTML = events.map(ev => `
-    <div class="py-4 space-y-1.5">
-      <div class="text-sm font-semibold text-zinc-900">${ev.title}</div>
-      <div class="text-xs text-zinc-500 leading-relaxed">${ev.detail}</div>
-    </div>
-  `).join('');
+  container.innerHTML = periods.map(p => {
+    const pct = ((p.total / totalSpend) * 100).toFixed(1);
+    return `
+      <div class="py-3.5 flex items-center justify-between text-xs">
+        <div class="space-y-0.5">
+          <div class="font-medium text-zinc-900">${p.label}</div>
+          <div class="text-zinc-500">${p.count} รายการ (${pct}%)</div>
+        </div>
+        <div class="tabular-nums text-sm font-semibold text-zinc-900">
+          ฿${formatNumber(p.total)}
+        </div>
+      </div>
+    `;
+  }).join('');
 }
 
 function renderMemoryRules() {
@@ -601,9 +662,10 @@ function renderPriorityQueue() {
           ${g.repeatCount > 1 ? `<span class="text-[11px] px-2 py-0.5 rounded-md bg-amber-100 text-amber-800 font-medium">ชื่อซ้ำ ${g.repeatCount} รายการ</span>` : ''}
         </div>
         <div class="flex flex-wrap items-center gap-4 text-xs text-zinc-500">
+          ${g.sourceBank ? `<span class="font-medium text-zinc-700">${g.sourceBank}</span>` : ''}
           <span>วันที่ ${g.date}</span>
           <span>เวลา ${g.time}</span>
-          ${g.autoHint ? `<span class="text-teal-700 font-medium">${g.autoHint}</span>` : ''}
+          ${g.channel ? `<span>ช่องทาง ${g.channel}</span>` : ''}
         </div>
       </div>
 
@@ -722,11 +784,11 @@ function renderTransactionTable() {
         </td>
         <td class="py-4 px-5 text-xs">
           <div class="font-medium text-zinc-900">${tx.description}</div>
-          <div class="flex flex-wrap items-center gap-1.5 mt-1">
+          <div class="flex flex-wrap items-center gap-2 mt-1.5">
+            ${tx.sourceBank ? `<span class="text-[11px] px-1.5 py-0.5 rounded bg-zinc-100 text-zinc-700 font-medium">${tx.sourceBank}</span>` : ''}
             <span class="text-[11px] font-mono text-zinc-400">${tx.code} · ${tx.channel}</span>
             <span class="text-[11px] px-2 py-0.5 rounded-md font-medium ${sourcePillClass}">${tx.sourceLabel}</span>
           </div>
-          ${tx.autoHint ? `<div class="mt-1.5 text-[11px] text-teal-700 bg-teal-50 border border-teal-200/70 rounded px-2 py-0.5 inline-block">${tx.autoHint}</div>` : ''}
         </td>
         <td class="py-4 px-5 whitespace-nowrap text-right tabular-nums">
           <div class="text-sm font-semibold ${tx.credit > 0 ? 'text-emerald-700' : 'text-zinc-900'}">
@@ -767,7 +829,6 @@ function renderTransactionTable() {
               <div class="text-[11px] text-zinc-400">คงเหลือ ${formatNumber(tx.balance)}</div>
             </div>
           </div>
-          ${tx.autoHint ? `<div class="text-xs text-teal-700 bg-teal-50 border border-teal-200/70 rounded-lg px-2.5 py-1">${tx.autoHint}</div>` : ''}
           <div class="space-y-2 pt-1">
             <select id="cat-m-${tx.id}" onchange="window.TangHai.autoSaveRowChange('${tx.id}', true)"
               class="w-full bg-white border border-zinc-200 rounded-xl px-3 py-2 text-xs text-zinc-900">
@@ -877,6 +938,53 @@ window.TangHai.exportCSV = function() {
 };
 
 
+function mergeParsedStatement(parsed, fileName, isAppend = false) {
+  const fileId = 'file-' + Date.now();
+  const bankLabel = parsed.meta.bankName || 'BANK';
+  const taggedTxs = parsed.transactions.map((t, i) => ({
+    ...t,
+    id: `${fileId}-tx-${i + 1}`,
+    sourceFileId: fileId,
+    sourceBank: bankLabel
+  }));
+
+  if (isAppend && AppState.rawTransactions.length > 0) {
+    AppState.uploadedFiles.push({
+      fileId,
+      fileName,
+      bankName: bankLabel,
+      accountName: parsed.meta.accountName || '',
+      txCount: taggedTxs.length
+    });
+    AppState.rawTransactions = [...AppState.rawTransactions, ...taggedTxs];
+    const ownerSet = new Set([
+      ...(AppState.meta.ownerNames || []),
+      AppState.meta.accountName,
+      parsed.meta.accountName
+    ].filter(Boolean));
+    AppState.meta.ownerNames = Array.from(ownerSet);
+    AppState.meta.totalPages = (AppState.meta.totalPages || 0) + (parsed.meta.totalPages || 1);
+    const bankNames = Array.from(new Set(AppState.uploadedFiles.map(f => f.bankName).filter(Boolean)));
+    AppState.meta.bankName = bankNames.join(' + ');
+  } else {
+    AppState.fileName = fileName;
+    AppState.meta = {
+      ...parsed.meta,
+      ownerNames: [parsed.meta.accountName].filter(Boolean)
+    };
+    AppState.uploadedFiles = [{
+      fileId,
+      fileName,
+      bankName: bankLabel,
+      accountName: parsed.meta.accountName || '',
+      txCount: taggedTxs.length
+    }];
+    AppState.rawTransactions = taggedTxs;
+  }
+
+  runAnalysisAndRender();
+}
+
 function openPasswordModal(fileName) {
   const modal = document.getElementById('password-modal');
   document.getElementById('locked-file-name').textContent = fileName;
@@ -903,10 +1011,12 @@ window.TangHai.submitPdfPassword = async function() {
     const parsed = await window.TangHai.PDFParser.extractTransactionsFromPDF(AppState.pendingPdfBuffer.slice(0), pwd);
     window.TangHai.closePasswordModal();
     if (parsed.transactions.length > 0) {
-      AppState.rawTransactions = parsed.transactions;
-      AppState.meta = parsed.meta;
-      runAnalysisAndRender();
-      notify(`ปลดล็อกและอ่านข้อมูลสำเร็จ ${parsed.transactions.length} รายการ (${parsed.meta.totalPages} หน้า)`);
+      mergeParsedStatement(parsed, AppState.pendingFileName, AppState.isAppendMode);
+      notify(
+        AppState.isAppendMode
+          ? `รวมสเตทเมนต์เพิ่มสำเร็จ (+${parsed.transactions.length} รายการ)`
+          : `ปลดล็อกและอ่านข้อมูลสำเร็จ ${parsed.transactions.length} รายการ`
+      );
     } else {
       alert('ปลดล็อกไฟล์สำเร็จ แต่ไม่พบรูปแบบตารางรายการที่รองรับ');
     }
@@ -916,19 +1026,22 @@ window.TangHai.submitPdfPassword = async function() {
   }
 };
 
-async function handlePdfFile(file) {
+async function handlePdfFile(file, isAppend = false) {
   if (!file) return;
-  AppState.fileName = file.name;
+  AppState.pendingFileName = file.name;
+  AppState.isAppendMode = isAppend;
   const buffer = await file.arrayBuffer();
   AppState.pendingPdfBuffer = buffer;
 
   try {
     const parsed = await window.TangHai.PDFParser.extractTransactionsFromPDF(buffer.slice(0));
     if (parsed.transactions.length > 0) {
-      AppState.rawTransactions = parsed.transactions;
-      AppState.meta = parsed.meta;
-      runAnalysisAndRender();
-      notify(`อ่านไฟล์ ${file.name} สำเร็จ (${parsed.transactions.length} รายการ)`);
+      mergeParsedStatement(parsed, file.name, isAppend);
+      notify(
+        isAppend
+          ? `รวมไฟล์ ${file.name} เพิ่มสำเร็จ (+${parsed.transactions.length} รายการ)`
+          : `อ่านไฟล์ ${file.name} สำเร็จ (${parsed.transactions.length} รายการ)`
+      );
     } else {
       openPasswordModal(file.name);
     }
@@ -938,11 +1051,18 @@ async function handlePdfFile(file) {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-  const fileInputs = document.querySelectorAll('.pdf-file-input');
-  fileInputs.forEach(input => {
+  document.querySelectorAll('.pdf-file-input').forEach(input => {
     input.addEventListener('change', e => {
       const file = e.target.files?.[0];
-      if (file) handlePdfFile(file);
+      if (file) handlePdfFile(file, false);
+      e.target.value = '';
+    });
+  });
+
+  document.querySelectorAll('.pdf-append-input').forEach(input => {
+    input.addEventListener('change', e => {
+      const file = e.target.files?.[0];
+      if (file) handlePdfFile(file, true);
       e.target.value = '';
     });
   });

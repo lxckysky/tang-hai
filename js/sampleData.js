@@ -118,4 +118,35 @@ window.TangHai.addCustomCategory = function(labelText) {
   }
 };
 
+// ข้อมูลสเตทเมนต์ตัวอย่าง (เซ็นเซอร์ชื่อบุคคลเป็นชื่อสมมติ สำหรับให้ผู้ทดสอบหรือกรรมการกดทดลองระบบได้ทันที)
+window.TangHai.DEMO_STATEMENT_DATA = {
+  fileName: 'Sample_Statement_Oct2026.pdf',
+  meta: {
+    totalPages: 2,
+    openingBalance: 12500.00,
+    closingBalance: 4120.50,
+    accountName: 'นาย ทดสอบ ระบบวิเคราะห์',
+    accountNo: '420-XXXXX2-5',
+    period: '01/10/2026 - 27/10/2026',
+    bankName: 'SCB'
+  },
+  transactions: [
+    { id: 'demo-1', page: 1, date: '01/10/26', time: '10:15', code: 'X1', channel: 'ENET', debit: 0, credit: 15000.00, balance: 27500.00, description: 'รับโอนจาก KBNK x5550 นาย ทดสอบ ระบบวิเคราะห์', sourceBank: 'SCB' },
+    { id: 'demo-2', page: 1, date: '01/10/26', time: '10:20', code: 'X2', channel: 'ENET', debit: 8500.00, credit: 0, balance: 19000.00, description: 'โอนไป KTB x5758 บจก. เดอะเรสซิเดนซ์ (ค่าเช่า)', sourceBank: 'SCB' },
+    { id: 'demo-3', page: 1, date: '02/10/26', time: '08:30', code: 'X2', channel: 'ENET', debit: 29.00, credit: 0, balance: 18971.00, description: 'จ่ายบิล ทางด่วนและรถไฟฟ้ากรุงเทพ (BEM)', sourceBank: 'SCB' },
+    { id: 'demo-4', page: 1, date: '02/10/26', time: '12:15', code: 'X2', channel: 'ENET', debit: 55.00, credit: 0, balance: 18916.00, description: 'จ่ายบิล SCB มณี SHOP (ร้านอาหารตึกจุลจักรพงษ์)', sourceBank: 'SCB' },
+    { id: 'demo-5', page: 1, date: '03/10/26', time: '14:00', code: 'X2', channel: 'ENET', debit: 385.00, credit: 0, balance: 18531.00, description: 'จ่ายบิล CHULALONGKORN UNIVERSITY BOOK CENTER', sourceBank: 'SCB' },
+    { id: 'demo-6', page: 1, date: '05/10/26', time: '19:20', code: 'X2', channel: 'ENET', debit: 1980.00, credit: 0, balance: 16551.00, description: 'จ่ายบิล ยูนิโคล่ (UNIQLO)', sourceBank: 'SCB' },
+    { id: 'demo-7', page: 1, date: '07/10/26', time: '09:24', code: 'X2', channel: 'ENET', debit: 642.50, credit: 0, balance: 15908.50, description: 'จ่ายบิล METROPOLITAN ELECTRICITY AUTHORITY', sourceBank: 'SCB' },
+    { id: 'demo-8', page: 1, date: '08/10/26', time: '21:12', code: 'X2', channel: 'SIPI', debit: 300.00, credit: 0, balance: 15608.50, description: 'SIPS TRUE MONEY CO.,LTD.', sourceBank: 'SCB' },
+    { id: 'demo-9', page: 1, date: '10/10/26', time: '01:25', code: 'X2', channel: 'ENET', debit: 1017.00, credit: 0, balance: 14591.50, description: 'จ่ายบิล OMISE - TIKTOK SHOP', sourceBank: 'SCB' },
+    { id: 'demo-10', page: 2, date: '11/10/26', time: '17:54', code: 'X2', channel: 'ENET', debit: 854.00, credit: 0, balance: 13737.50, description: 'จ่ายบิล AIS POSTPAID / AIS FIBRE', sourceBank: 'SCB' },
+    { id: 'demo-11', page: 2, date: '12/10/26', time: '16:57', code: 'X2', channel: 'CDM', debit: 1000.00, credit: 0, balance: 12737.50, description: 'Terminal No. S1JCR6603/Cardless ATM', sourceBank: 'SCB' },
+    { id: 'demo-12', page: 2, date: '15/10/26', time: '12:30', code: 'X2', channel: 'ENET', debit: 50.00, credit: 0, balance: 12687.50, description: 'PromptPay x7605 นาย สมชาย ใจดี', sourceBank: 'SCB' },
+    { id: 'demo-13', page: 2, date: '18/10/26', time: '19:45', code: 'X2', channel: 'ENET', debit: 50.00, credit: 0, balance: 12637.50, description: 'PromptPay x7605 นาย สมชาย ใจดี', sourceBank: 'SCB' },
+    { id: 'demo-14', page: 2, date: '20/10/26', time: '18:10', code: 'X2', channel: 'ENET', debit: 470.00, credit: 0, balance: 12167.50, description: 'PromptPay x1489 น.ส. สมหญิง รักเรียน', sourceBank: 'SCB' }
+  ]
+};
+
+
 

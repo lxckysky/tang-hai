@@ -44,14 +44,29 @@ const MERCHANT_AI_RULES = [
   }
 ];
 
-function extractOwnerCoreName(accountName = '') {
-  return accountName.replace(/^(?:นาย|นางสาว|น\.ส\.|นาง)\s+/i, '').trim();
+function extractOwnerCoreNames(meta = {}) {
+  const names = new Set();
+  if (meta.accountName) {
+    const clean = meta.accountName.replace(/^(?:นาย|นางสาว|น\.ส\.|นาง)\s+/i, '').trim();
+    if (clean) names.add(clean);
+  }
+  if (Array.isArray(meta.ownerNames)) {
+    for (const n of meta.ownerNames) {
+      const clean = (n || '').replace(/^(?:นาย|นางสาว|น\.ส\.|นาง)\s+/i, '').trim();
+      if (clean) names.add(clean);
+    }
+  }
+  return Array.from(names);
+}
+
+function isMatchingOwnerName(desc = '', ownerNames = []) {
+  if (!desc || !ownerNames.length) return false;
+  return ownerNames.some(name => name.length >= 3 && desc.includes(name));
 }
 
 const AI_CACHE_KEY = 'tanghai_gemini_cache_v1';
 const API_KEY_STORAGE = 'tanghai_gemini_api_key';
 
-// ดึงคีย์จาก localStorage ของเบราว์เซอร์เท่านั้น (ไม่มีคีย์ฝังในโค้ดบน GitHub ปลอดภัย 100%)
 function getStoredApiKey() {
   return (localStorage.getItem(API_KEY_STORAGE) || '').trim();
 }
@@ -95,52 +110,44 @@ window.TangHai.Categorizer = {
     let memoryHits = 0;
     let ruleHits = 0;
     const unknownSet = new Set();
-    const ownerCoreName = extractOwnerCoreName(meta.accountName || '');
+    const ownerNames = extractOwnerCoreNames(meta);
     const aiCache = getAICache();
-
-    const insights = this.detectSplitsAndPassThroughs(rawTransactions, ownerCoreName);
-    const passThroughIds = new Set(insights.passThroughTxIds);
-    const splitNoteById = insights.splitNoteById;
 
     const stageOneList = rawTransactions.map(tx => {
       const desc = tx.description || '';
       const normKey = window.TangHai.MemoryStore.normalizeKey(desc);
-      const autoHint = splitNoteById[tx.id] || '';
 
       if (tx.rowCategoryOverride) {
         memoryHits++;
         return {
           ...tx,
           normKey,
-          autoHint,
           category: tx.rowCategoryOverride,
           source: 'MEMORY',
-          sourceLabel: 'แก้ไขแล้ว',
+          sourceLabel: 'กำหนดเอง',
           needsReview: false
         };
       }
+
+      const isSelf = isMatchingOwnerName(desc, ownerNames);
 
       if (tx.code === 'X1' || tx.credit > 0) {
         ruleHits++;
-        const isFromSelf = ownerCoreName && desc.includes(ownerCoreName);
         return {
           ...tx,
           normKey,
-          autoHint,
           category: 'INCOME',
           source: 'RULE',
-          sourceLabel: isFromSelf ? 'โอนเข้าจากบัญชีตัวเอง' : 'เงินโอนเข้า',
+          sourceLabel: isSelf ? 'โอนเข้าจากบัญชีตัวเอง' : 'เงินโอนเข้า',
           needsReview: false
         };
       }
 
-      // 1.2 ตรวจจับโอนเงินไปบัญชีชื่อตัวเอง (เช็กจากชื่อเจ้าของสเตทเมนต์ตรงกับชื่อปลายทางเท่านั้น!)
-      if (ownerCoreName && desc.includes(ownerCoreName)) {
+      if (isSelf) {
         ruleHits++;
         return {
           ...tx,
           normKey,
-          autoHint,
           category: 'SELF_TRANSFER',
           source: 'RULE',
           sourceLabel: 'โอนบัญชีตัวเอง',
@@ -153,7 +160,6 @@ window.TangHai.Categorizer = {
         return {
           ...tx,
           normKey,
-          autoHint,
           category: 'CASH_ATM',
           source: 'RULE',
           sourceLabel: 'กดเงินสด ATM',
@@ -167,7 +173,6 @@ window.TangHai.Categorizer = {
         return {
           ...tx,
           normKey,
-          autoHint,
           category: memoryMatch.category,
           userNote: tx.userNote || memoryMatch.alias,
           source: 'MEMORY',
@@ -177,7 +182,7 @@ window.TangHai.Categorizer = {
       }
 
       unknownSet.add(normKey);
-      return { ...tx, normKey, autoHint, _pendingAI: true };
+      return { ...tx, normKey, _pendingAI: true };
     });
 
 
@@ -228,12 +233,7 @@ window.TangHai.Categorizer = {
       if (res.source === 'AI_GUESS') aiGuessedCount++;
       else humanReviewCount++;
 
-      let smartContextHint = tx.autoHint || res.llmHint || '';
-      if (res.category === 'UNKNOWN' && !smartContextHint && mode === 'AI') {
-        smartContextHint = this.generateAIContextHint(tx);
-      }
-
-      const cleaned = { ...tx, ...res, autoHint: smartContextHint };
+      const cleaned = { ...tx, ...res };
       delete cleaned._pendingAI;
       return cleaned;
     });
@@ -244,15 +244,11 @@ window.TangHai.Categorizer = {
       ? Math.round(((totalRows - uniqueCount) / totalRows) * 100)
       : 0;
 
-    const summaryBullets = (mode === 'AI' && Array.isArray(aiCache.summary) && aiCache.summary.length > 0)
-      ? aiCache.summary
-      : this.buildAIMonthlySummary(finalTransactions);
-
     return {
       transactions: finalTransactions,
-      insights: insights.detectedEvents,
-      aiSummaryBullets: summaryBullets,
-      selfAccounts: this.summarizeSelfAccounts(finalTransactions, ownerCoreName),
+      timeBreakdown: this.buildTimeOfDayBreakdown(finalTransactions),
+      aiSummaryBullets: this.buildAIMonthlySummary(finalTransactions),
+      selfAccounts: this.summarizeSelfAccounts(finalTransactions, ownerNames),
       priorityGroups: this.buildPriorityUnknownGroups(finalTransactions),
       stats: {
         totalRows,
@@ -264,6 +260,34 @@ window.TangHai.Categorizer = {
         savedApiPercent: savedPercent
       }
     };
+  },
+
+  buildTimeOfDayBreakdown(transactions) {
+    const periods = [
+      { id: 'MORNING', label: 'ช่วงเช้า (06:00 – 11:59)', total: 0, count: 0 },
+      { id: 'AFTERNOON', label: 'ช่วงบ่าย (12:00 – 17:59)', total: 0, count: 0 },
+      { id: 'EVENING', label: 'ช่วงค่ำ (18:00 – 23:59)', total: 0, count: 0 },
+      { id: 'NIGHT', label: 'ช่วงดึก (00:00 – 05:59)', total: 0, count: 0 }
+    ];
+
+    for (const tx of transactions) {
+      if (!tx.debit || tx.debit <= 0 || tx.category === 'SELF_TRANSFER') continue;
+      const hour = parseInt((tx.time || '12:00').split(':')[0], 10);
+      if (hour >= 6 && hour < 12) {
+        periods[0].total += tx.debit;
+        periods[0].count += 1;
+      } else if (hour >= 12 && hour < 18) {
+        periods[1].total += tx.debit;
+        periods[1].count += 1;
+      } else if (hour >= 18 && hour <= 23) {
+        periods[2].total += tx.debit;
+        periods[2].count += 1;
+      } else {
+        periods[3].total += tx.debit;
+        periods[3].count += 1;
+      }
+    }
+    return periods;
   },
 
   async runGeminiLLMAnalysis(rawTransactions) {
@@ -385,7 +409,6 @@ window.TangHai.Categorizer = {
   buildPriorityUnknownGroups(transactions) {
     const unknownTxs = transactions.filter(tx => tx.category === 'UNKNOWN' && tx.debit > 0);
 
-    // นับว่าแต่ละชื่อผู้รับมีโอนซ้ำกี่ครั้งในกลุ่มที่ยังไม่ระบุ
     const freqMap = {};
     for (const tx of unknownTxs) {
       const key = tx.normKey || window.TangHai.MemoryStore.normalizeKey(tx.description);
@@ -402,31 +425,12 @@ window.TangHai.Categorizer = {
           amount: tx.debit,
           date: tx.date,
           time: tx.time,
-          repeatCount: freqMap[key] || 1,
-          autoHint: tx.autoHint || ''
+          channel: tx.channel || '',
+          sourceBank: tx.sourceBank || '',
+          repeatCount: freqMap[key] || 1
         };
       })
       .sort((a, b) => b.amount - a.amount);
-  },
-
-  generateAIContextHint(tx) {
-    const amt = tx.debit || 0;
-    const day = parseInt((tx.date || '01/10/26').split('/')[0], 10);
-    const hour = parseInt((tx.time || '12:00').split(':')[0], 10);
-
-    if (amt >= 3000 && day <= 5) {
-      return 'AI คาดว่า: ค่าเช่าคอนโด / หอพักรายเดือน (โอนก้อนใหญ่ช่วงต้นเดือน)';
-    }
-    if (amt <= 65 && hour >= 6 && hour <= 21) {
-      return 'AI คาดว่า: ร้านอาหาร / เครื่องดื่ม / วิน (ยอดย่อยช่วงเวลาอาหาร)';
-    }
-    if (amt > 65 && amt <= 250) {
-      return 'AI คาดว่า: มื้ออาหารหลัก / หารค่าของกับเพื่อน';
-    }
-    if (amt >= 1000) {
-      return 'AI คาดว่า: ค่าที่พัก / ของชิ้นใหญ่ / โอนให้เพื่อน';
-    }
-    return 'AI คาดว่า: โอนให้บุคคล / ชำระออนไลน์';
   },
 
   buildAIMonthlySummary(transactions) {
@@ -434,48 +438,44 @@ window.TangHai.Categorizer = {
     const debits = transactions.filter(t => t.debit > 0 && t.category !== 'SELF_TRANSFER');
     const totalSpend = debits.reduce((s, t) => s + t.debit, 0);
 
+    const uniqueDates = new Set(debits.map(t => t.date)).size || 1;
+    if (totalSpend > 0) {
+      const dailyAvg = totalSpend / uniqueDates;
+      bullets.push(`ค่าใช้จ่ายเฉลี่ยวันละ ฿${dailyAvg.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (จากที่มีการโอนออก ${uniqueDates} วัน)`);
+    }
+
     const walletTxs = debits.filter(t => t.category === 'WALLET');
     const walletTotal = walletTxs.reduce((s, t) => s + t.debit, 0);
     if (walletTxs.length > 0 && totalSpend > 0) {
       const pct = Math.round((walletTotal / totalSpend) * 100);
-      bullets.push(`เติมเงิน Wallet รวม ${walletTxs.length} ครั้ง (${walletTotal.toLocaleString('th-TH', { minimumFractionDigits: 2 })} บาท คิดเป็น ${pct}% ของรายจ่ายจริง)`);
-    }
-
-    const foodTxs = debits.filter(t => t.category === 'FOOD');
-    const foodTotal = foodTxs.reduce((s, t) => s + t.debit, 0);
-    if (foodTxs.length > 0) {
-      bullets.push(`ค่าอาหารและเครื่องดื่ม ${foodTxs.length} ครั้ง รวม ${foodTotal.toLocaleString('th-TH', { minimumFractionDigits: 2 })} บาท (เฉลี่ยมื้อละ ${Math.round(foodTotal / foodTxs.length)} บาท)`);
+      bullets.push(`รายการเติมเงิน Wallet รวม ${walletTxs.length} ครั้ง เป็นเงิน ฿${walletTotal.toLocaleString('th-TH', { minimumFractionDigits: 2 })} (${pct}% ของรายจ่ายจริง)`);
     }
 
     const unknownTxs = debits.filter(t => t.category === 'UNKNOWN');
     const unknownTotal = unknownTxs.reduce((s, t) => s + t.debit, 0);
     if (unknownTxs.length > 0) {
-      bullets.push(`รอระบุหมวดหมู่ ${unknownTxs.length} รายการ (รวม ${unknownTotal.toLocaleString('th-TH', { minimumFractionDigits: 2 })} บาท)`);
-    } else {
-      bullets.push(`จัดหมวดหมู่ครบทุกรายการ 100% แล้ว`);
+      bullets.push(`รายการรอระบุหมวดหมู่ ${unknownTxs.length} รายการ รวมเป็นเงิน ฿${unknownTotal.toLocaleString('th-TH', { minimumFractionDigits: 2 })}`);
+    } else if (totalSpend > 0) {
+      bullets.push(`จัดหมวดหมู่ครบทุกรายการ 100% เรียบร้อยแล้ว`);
     }
 
     return bullets;
   },
 
-  /**
-   * สรุปการโอนย้ายเงินไป-มาระหว่างบัญชีตัวเอง (เช่น SCB x3967, KBNK x5550)
-   * เพื่อให้คนที่มี 2-3 บัญชีเห็นภาพรวมชัดเจนว่าโยกเงินเข้า-ออกสุทธิเท่าไหร่
-   */
-  summarizeSelfAccounts(transactions, ownerCoreName = '') {
+  summarizeSelfAccounts(transactions, ownerNames = []) {
     const map = {};
+    const namesArr = Array.isArray(ownerNames) ? ownerNames : [ownerNames].filter(Boolean);
 
     for (const tx of transactions) {
       const desc = tx.description || '';
-      const isSelfByName = ownerCoreName && desc.includes(ownerCoreName);
+      const isSelfByName = isMatchingOwnerName(desc, namesArr);
       const isSelfCategory = tx.category === 'SELF_TRANSFER';
 
       if (!isSelfByName && !isSelfCategory) continue;
 
-      // สกัดรหัสธนาคารและเลขท้ายบัญชี เช่น "SCB x3967" หรือ "KBNK x5550"
       const bankMatch = desc.match(/([A-Z]{2,6}\s*x\d{4})/i);
       const acctKey = bankMatch
-        ? `${bankMatch[1].toUpperCase()} (${ownerCoreName || 'บัญชีตัวเอง'})`
+        ? `${bankMatch[1].toUpperCase()} (${namesArr[0] || 'บัญชีตัวเอง'})`
         : window.TangHai.MemoryStore.normalizeKey(desc);
 
       if (!map[acctKey]) {

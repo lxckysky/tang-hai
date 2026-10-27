@@ -93,8 +93,8 @@
           ล้างข้อมูล
         </button>
         <label class="cursor-pointer px-3 py-2 rounded-lg bg-zinc-900 hover:bg-zinc-800 text-xs font-medium text-white transition">
-          เปลี่ยนไฟล์
-          <input type="file" accept=".pdf" class="pdf-file-input hidden" />
+          + เพิ่มสเตทเมนต์
+          <input type="file" accept=".pdf" class="pdf-append-input hidden" />
         </label>
       </div>
     </div>
@@ -108,7 +108,7 @@
         <div class="space-y-2 text-center">
           <h1 class="text-xl font-semibold text-zinc-900">อัปโหลดไฟล์ e-Statement</h1>
           <p class="text-sm text-zinc-500 leading-relaxed">
-            รองรับไฟล์ PDF จากแอปธนาคารบนมือถือและคอมพิวเตอร์ ถอดรหัสและจัดหมวดหมู่ในเครื่องของคุณโดยตรง
+            รองรับไฟล์ PDF จากทุกธนาคาร ถอดรหัสและจัดหมวดหมู่ในเครื่องของคุณโดยตรง สามารถอัปโหลดหลายบัญชีมารวมกันได้
           </p>
         </div>
 
@@ -121,12 +121,22 @@
           <span class="text-xs text-zinc-400 mt-1.5">ใช้งานได้ทั้งบน iPhone, iPad และ PC</span>
           <input type="file" accept=".pdf" class="pdf-file-input hidden" />
         </label>
+
+        <div class="pt-2 text-center">
+          <button onclick="window.TangHai.loadSampleData()"
+            class="text-xs text-zinc-500 hover:text-zinc-900 underline underline-offset-4 transition">
+            ไม่มีไฟล์ PDF ในเครื่อง? คลิกเพื่อทดลองด้วยข้อมูลสเตทเมนต์ตัวอย่าง
+          </button>
+        </div>
       </div>
     </section>
 
 
     <!-- หน้าแสดงผลและตรวจสอบข้อมูลหลังอัปโหลดไฟล์ (4 หน้าแยกกัน โล่งสบายตา) -->
     <div id="workspace-view" class="hidden space-y-8">
+
+      <!-- แถบแสดงรายการไฟล์สเตทเมนต์ที่รวมอยู่ในระบบ -->
+      <div id="uploaded-files-bar" class="flex flex-wrap items-center gap-2"></div>
 
       <!-- =========================================================
            หน้าที่ 1: ภาพรวมรายจ่าย (OVERVIEW PAGE)
@@ -332,8 +342,8 @@
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <section class="bg-white border border-zinc-200 rounded-2xl p-6 shadow-sm space-y-4">
             <div>
-              <h2 class="text-base font-semibold text-zinc-900">รายการหารเพื่อน & เงินโอนคืนที่พบ</h2>
-              <p class="text-xs text-zinc-500 mt-0.5">ตรวจจับอัตโนมัติจากยอดเงินโอนเข้า-ออกที่สัมพันธ์กันในวันเดียวกัน</p>
+              <h2 class="text-base font-semibold text-zinc-900">แจกแจงรายจ่ายตามช่วงเวลาของวัน</h2>
+              <p class="text-xs text-zinc-500 mt-0.5">คำนวณจากเวลาที่ทำรายการโอนออกจริงในสเตทเมนต์</p>
             </div>
             <div id="daily-spikes-list" class="divide-y divide-zinc-100"></div>
           </section>
