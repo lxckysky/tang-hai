@@ -48,12 +48,55 @@ function extractOwnerCoreName(accountName = '') {
   return accountName.replace(/^(?:นาย|นางสาว|น\.ส\.|นาง)\s+/i, '').trim();
 }
 
+const AI_CACHE_KEY = 'tanghai_gemini_cache_v1';
+const API_KEY_STORAGE = 'tanghai_gemini_api_key';
+
+// ดึงคีย์จาก localStorage ของเบราว์เซอร์เท่านั้น (ไม่มีคีย์ฝังในโค้ดบน GitHub ปลอดภัย 100%)
+function getStoredApiKey() {
+  return (localStorage.getItem(API_KEY_STORAGE) || '').trim();
+}
+
+function getAICache() {
+  try {
+    const raw = localStorage.getItem(AI_CACHE_KEY);
+    return raw ? JSON.parse(raw) : { merchants: {}, summary: null };
+  } catch (e) {
+    return { merchants: {}, summary: null };
+  }
+}
+
+function saveAICache(cacheData) {
+  try {
+    localStorage.setItem(AI_CACHE_KEY, JSON.stringify(cacheData));
+  } catch (e) {
+    console.error('Cache save error:', e);
+  }
+}
+
 window.TangHai.Categorizer = {
-  analyzeTransactions(rawTransactions, meta = {}) {
+  getApiKey() {
+    return getStoredApiKey();
+  },
+
+  setApiKey(keyStr) {
+    const clean = (keyStr || '').trim();
+    if (clean) {
+      localStorage.setItem(API_KEY_STORAGE, clean);
+    } else {
+      localStorage.removeItem(API_KEY_STORAGE);
+    }
+  },
+
+  clearAICache() {
+    localStorage.removeItem(AI_CACHE_KEY);
+  },
+
+  analyzeTransactions(rawTransactions, meta = {}, mode = 'BASIC') {
     let memoryHits = 0;
     let ruleHits = 0;
     const unknownSet = new Set();
     const ownerCoreName = extractOwnerCoreName(meta.accountName || '');
+    const aiCache = getAICache();
 
     const insights = this.detectSplitsAndPassThroughs(rawTransactions, ownerCoreName);
     const passThroughIds = new Set(insights.passThroughTxIds);
@@ -72,7 +115,7 @@ window.TangHai.Categorizer = {
           autoHint,
           category: tx.rowCategoryOverride,
           source: 'MEMORY',
-          sourceLabel: 'แก้ไขเฉพาะรายการ',
+          sourceLabel: 'แก้ไขแล้ว',
           needsReview: false
         };
       }
@@ -86,7 +129,7 @@ window.TangHai.Categorizer = {
           autoHint,
           category: 'INCOME',
           source: 'RULE',
-          sourceLabel: isFromSelf ? 'โอนเข้าจากบัญชีตัวเอง' : 'รหัสเงินเข้า (X1)',
+          sourceLabel: isFromSelf ? 'โอนเข้าจากบัญชีตัวเอง' : 'เงินโอนเข้า',
           needsReview: false
         };
       }
@@ -99,7 +142,7 @@ window.TangHai.Categorizer = {
           autoHint,
           category: 'SELF_TRANSFER',
           source: 'RULE',
-          sourceLabel: ownerCoreName && desc.includes(ownerCoreName) ? 'โอนไปบัญชีชื่อตัวเอง' : 'เงินผ่านบัญชี (เข้า-ออกตรงกัน)',
+          sourceLabel: ownerCoreName && desc.includes(ownerCoreName) ? 'โอนบัญชีตัวเอง' : 'เงินผ่านบัญชี',
           needsReview: false
         };
       }
@@ -127,7 +170,7 @@ window.TangHai.Categorizer = {
           category: memoryMatch.category,
           userNote: tx.userNote || memoryMatch.alias,
           source: 'MEMORY',
-          sourceLabel: `จำชื่อร้าน: ${memoryMatch.alias}`,
+          sourceLabel: `จำไว้: ${memoryMatch.alias}`,
           needsReview: false
         };
       }
@@ -149,18 +192,30 @@ window.TangHai.Categorizer = {
         r.keywords.some(kw => upperName.includes(kw.toUpperCase()))
       );
 
-      if (matchedRule) {
+      const geminiCached = mode === 'AI' ? aiCache.merchants?.[merchantName] : null;
+
+      if (geminiCached && geminiCached.category && geminiCached.category !== 'UNKNOWN') {
+        batchResults[merchantName] = {
+          category: geminiCached.category,
+          source: 'AI_GUESS',
+          sourceLabel: 'Gemini AI แยกให้',
+          llmHint: geminiCached.hint || '',
+          needsReview: false
+        };
+      } else if (matchedRule) {
         batchResults[merchantName] = {
           category: matchedRule.category,
           source: 'AI_GUESS',
-          sourceLabel: 'AI คาดเดาจากชื่อบริษัท/ร้านค้า',
-          needsReview: true
+          sourceLabel: 'แยกจากชื่อร้าน',
+          llmHint: geminiCached ? geminiCached.hint : '',
+          needsReview: false
         };
       } else {
         batchResults[merchantName] = {
           category: 'UNKNOWN',
           source: 'NEEDS_INPUT',
-          sourceLabel: 'ชื่อบุคคล / รอระบุเอง',
+          sourceLabel: 'รอระบุหมวดหมู่',
+          llmHint: geminiCached ? geminiCached.hint : '',
           needsReview: true
         };
       }
@@ -172,8 +227,8 @@ window.TangHai.Categorizer = {
       if (res.source === 'AI_GUESS') aiGuessedCount++;
       else humanReviewCount++;
 
-      let smartContextHint = tx.autoHint || '';
-      if (res.category === 'UNKNOWN' && !smartContextHint) {
+      let smartContextHint = tx.autoHint || res.llmHint || '';
+      if (res.category === 'UNKNOWN' && !smartContextHint && mode === 'AI') {
         smartContextHint = this.generateAIContextHint(tx);
       }
 
@@ -188,10 +243,14 @@ window.TangHai.Categorizer = {
       ? Math.round(((totalRows - uniqueCount) / totalRows) * 100)
       : 0;
 
+    const summaryBullets = (mode === 'AI' && Array.isArray(aiCache.summary) && aiCache.summary.length > 0)
+      ? aiCache.summary
+      : this.buildAIMonthlySummary(finalTransactions);
+
     return {
       transactions: finalTransactions,
       insights: insights.detectedEvents,
-      aiSummaryBullets: this.buildAIMonthlySummary(finalTransactions),
+      aiSummaryBullets: summaryBullets,
       selfAccounts: this.summarizeSelfAccounts(finalTransactions, ownerCoreName),
       priorityGroups: this.buildPriorityUnknownGroups(finalTransactions),
       stats: {
@@ -204,6 +263,88 @@ window.TangHai.Categorizer = {
         savedApiPercent: savedPercent
       }
     };
+  },
+
+  async runGeminiLLMAnalysis(rawTransactions) {
+    const apiKey = this.getApiKey();
+    if (!apiKey) throw new Error('ไม่พบ Gemini API Key');
+
+    const aiCache = getAICache();
+    const itemsToAsk = [];
+    const seenKeys = new Set();
+
+    for (const tx of rawTransactions) {
+      if (tx.credit > 0 || tx.code === 'X1') continue;
+      const normKey = window.TangHai.MemoryStore.normalizeKey(tx.description);
+      if (seenKeys.has(normKey)) continue;
+
+      const upper = normKey.toUpperCase();
+      const matchedBasic = MERCHANT_AI_RULES.find(r => r.keywords.some(kw => upper.includes(kw.toUpperCase())));
+
+      if (!matchedBasic && !aiCache.merchants[normKey]) {
+        seenKeys.add(normKey);
+        itemsToAsk.push({
+          key: normKey,
+          amount: tx.debit,
+          time: tx.time,
+          date: tx.date
+        });
+      }
+    }
+
+    if (itemsToAsk.length === 0 && aiCache.summary) {
+      return { cached: true, count: 0 };
+    }
+
+    const promptText = `คุณคือผู้เชี่ยวชาญวิเคราะห์สเตทเมนต์ธนาคารไทย
+งานที่ 1: วิเคราะห์รายการโอนเงินต่อไปนี้ แล้วเดาหมวดหมู่และเขียนคำใบ้ภาษาไทยสั้นๆ (ไม่เกิน 7 คำ)
+กฎสำคัญ:
+- ถ้าเป็นชื่อบริษัท/ร้านค้า ให้เลือก category จาก [FOOD, GROCERY, TRANSPORT, SHOPPING, EDUCATION_HEALTH, BILLS, WALLET]
+- ถ้าเป็นชื่อบุคคลล้วนๆ (เช่น นาย..., น.ส...., นาง...) ที่ไม่รู้ชื่อร้าน ให้ใส่ category เป็น "UNKNOWN" เสมอ (เพื่อให้เจ้าของระบุเอง) แต่เขียน hint ภาษาไทยช่วยเดาจากยอดเงินและเวลาโอน
+
+รายการ: ${JSON.stringify(itemsToAsk)}
+
+งานที่ 2: เขียนสรุปภาพรวมการเงินสั้นๆ 3 ข้อ (summaryBullets)
+
+ตอบกลับเป็น JSON เท่านั้น:
+{"items":[{"key":"...","category":"...","hint":"..."}],"summaryBullets":["...","...","..."]}`;
+
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(apiKey)}`;
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: promptText }] }],
+        generationConfig: {
+          responseMimeType: 'application/json',
+          thinkingConfig: { thinkingBudget: 0 }
+        }
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(`Gemini API Error (${response.status})`);
+    }
+
+    const data = await response.json();
+    const parsed = JSON.parse(data?.candidates?.[0]?.content?.parts?.[0]?.text || '{}');
+
+    if (Array.isArray(parsed.items)) {
+      for (const item of parsed.items) {
+        if (item.key) {
+          aiCache.merchants[item.key] = {
+            category: item.category || 'UNKNOWN',
+            hint: item.hint || ''
+          };
+        }
+      }
+    }
+    if (Array.isArray(parsed.summaryBullets) && parsed.summaryBullets.length > 0) {
+      aiCache.summary = parsed.summaryBullets;
+    }
+
+    saveAICache(aiCache);
+    return { cached: false, count: itemsToAsk.length };
   },
 
   /**

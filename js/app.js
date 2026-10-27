@@ -19,6 +19,8 @@ const AppState = {
   selfAccounts: [],
   priorityGroups: [],
   stats: null,
+  analysisMode: localStorage.getItem('tanghai_analysis_mode') || 'BASIC', // 'BASIC' หรือ 'AI'
+  isAiLoading: false,
   activeFilter: 'ALL',
   sortBy: 'AMOUNT_DESC',
   hideSelfTransfers: true,
@@ -121,7 +123,11 @@ function notify(message) {
 function runAnalysisAndRender(shouldSave = true) {
   if (!AppState.rawTransactions.length) return;
 
-  const result = window.TangHai.Categorizer.analyzeTransactions(AppState.rawTransactions, AppState.meta);
+  const result = window.TangHai.Categorizer.analyzeTransactions(
+    AppState.rawTransactions,
+    AppState.meta,
+    AppState.analysisMode
+  );
   AppState.transactions = result.transactions;
   AppState.insights = result.insights || [];
   AppState.aiSummaryBullets = result.aiSummaryBullets || [];
@@ -138,6 +144,8 @@ function runAnalysisAndRender(shouldSave = true) {
   document.getElementById('header-actions')?.classList.remove('hidden');
   document.getElementById('desktop-nav')?.classList.remove('hidden');
   document.getElementById('mobile-bottom-nav')?.classList.remove('hidden');
+
+  updateModeSwitcherUI();
 
   const pCount = AppState.priorityGroups.length;
   const navBadge = document.getElementById('nav-badge-priority');
@@ -160,6 +168,78 @@ function runAnalysisAndRender(shouldSave = true) {
   renderMemoryRules();
   renderTransactionTable();
 }
+
+function updateModeSwitcherUI() {
+  const isAI = AppState.analysisMode === 'AI';
+  const btnBasic = document.getElementById('mode-btn-basic');
+  const btnAI = document.getElementById('mode-btn-ai');
+  const aiStatusText = document.getElementById('ai-mode-status');
+
+  if (btnBasic && btnAI) {
+    btnBasic.className = !isAI
+      ? 'px-3 py-1.5 rounded-lg text-xs font-semibold bg-zinc-900 text-white shadow-sm transition'
+      : 'px-3 py-1.5 rounded-lg text-xs font-medium text-zinc-600 hover:text-zinc-900 transition';
+    btnAI.className = isAI
+      ? 'px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600 text-white shadow-sm transition'
+      : 'px-3 py-1.5 rounded-lg text-xs font-medium text-zinc-600 hover:text-zinc-900 transition';
+    btnAI.textContent = AppState.isAiLoading ? 'กำลังถาม Gemini AI...' : 'โหมด Gemini AI';
+  }
+
+  if (aiStatusText) {
+    aiStatusText.textContent = isAI
+      ? 'เปิดใช้ Gemini 2.5 Flash ช่วยแยกหมวดหมู่และเขียนคำใบ้'
+      : 'โหมดแยกพื้นฐาน (Rule-Based เร็วทันที)';
+  }
+}
+
+window.TangHai.setAnalysisMode = async function(mode) {
+  if (AppState.isAiLoading) return;
+
+  if (mode === 'AI' && !window.TangHai.Categorizer.getApiKey()) {
+    document.getElementById('apikey-modal')?.classList.remove('hidden');
+    setTimeout(() => document.getElementById('gemini-apikey-input')?.focus(), 50);
+    return;
+  }
+
+  AppState.analysisMode = mode;
+  localStorage.setItem('tanghai_analysis_mode', mode);
+  updateModeSwitcherUI();
+
+  if (mode === 'AI' && AppState.rawTransactions.length > 0) {
+    try {
+      AppState.isAiLoading = true;
+      updateModeSwitcherUI();
+      notify('กำลังส่งรายการที่ไม่คุ้นเคยให้ Gemini 2.5 Flash ช่วยวิเคราะห์...');
+      const res = await window.TangHai.Categorizer.runGeminiLLMAnalysis(AppState.rawTransactions);
+      AppState.isAiLoading = false;
+      runAnalysisAndRender();
+      notify(res.cached ? 'สลับเป็นโหมด Gemini AI เรียบร้อย (ดึงจากหน่วยความจำ)' : 'Gemini 2.5 Flash วิเคราะห์สำเร็จ!');
+    } catch (err) {
+      AppState.isAiLoading = false;
+      runAnalysisAndRender();
+      notify(`หมายเหตุ: ${err.message}`);
+    }
+  } else {
+    runAnalysisAndRender();
+    notify('สลับเป็นโหมดแยกพื้นฐานเรียบร้อย');
+  }
+};
+
+window.TangHai.closeApiKeyModal = function() {
+  document.getElementById('apikey-modal')?.classList.add('hidden');
+};
+
+window.TangHai.saveApiKeyAndEnableAI = function() {
+  const input = document.getElementById('gemini-apikey-input');
+  const key = (input?.value || '').trim();
+  if (!key) {
+    notify('กรุณาวาง Gemini API Key ก่อนกดบันทึก');
+    return;
+  }
+  window.TangHai.Categorizer.setApiKey(key);
+  window.TangHai.closeApiKeyModal();
+  window.TangHai.setAnalysisMode('AI');
+};
 
 function renderAISummary() {
   const container = document.getElementById('ai-summary-list');

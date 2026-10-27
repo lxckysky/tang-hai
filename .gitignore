@@ -1,7 +1,10 @@
-# ป้องกันไม่ให้อัปโหลดไฟล์ PDF สเตทเมนต์ส่วนตัวขึ้น GitHub เด็ดขาด
+# ป้องกันไม่ให้อัปโหลดไฟล์ PDF สเตทเมนต์ส่วนตัวและไฟล์ตั้งค่า API Key ขึ้น GitHub เด็ดขาด
 *.pdf
+js/config.local.js
+.env*
 _test_pdf.html
 _out.txt
 _parsed_dump.json
 .DS_Store
 node_modules/
+

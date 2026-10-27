@@ -72,8 +72,20 @@
       </nav>
 
       <div id="header-actions" class="hidden flex items-center gap-2 shrink-0">
+        <!-- ปุ่มสลับโหมด พื้นฐาน vs Gemini AI ใน 1 คลิก -->
+        <div class="flex items-center bg-zinc-100 p-1 rounded-xl border border-zinc-200">
+          <button id="mode-btn-basic" onclick="window.TangHai.setAnalysisMode('BASIC')"
+            class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-zinc-900 text-white shadow-sm transition">
+            โหมดพื้นฐาน
+          </button>
+          <button id="mode-btn-ai" onclick="window.TangHai.setAnalysisMode('AI')"
+            class="px-3 py-1.5 rounded-lg text-xs font-medium text-zinc-600 hover:text-zinc-900 transition">
+            โหมด Gemini AI
+          </button>
+        </div>
+
         <button onclick="window.TangHai.exportCSV()"
-          class="px-3 py-2 rounded-lg border border-zinc-200 bg-white hover:bg-zinc-50 text-xs font-medium text-zinc-700 transition">
+          class="hidden sm:inline-block px-3 py-2 rounded-lg border border-zinc-200 bg-white hover:bg-zinc-50 text-xs font-medium text-zinc-700 transition">
           CSV
         </button>
         <button onclick="window.TangHai.clearSession()"
@@ -164,11 +176,11 @@
 
         <!-- กล่อง AI สรุปพฤติกรรมการใช้เงินประจำเดือน -->
         <section class="bg-white border border-zinc-200 rounded-2xl p-6 shadow-sm space-y-3">
-          <div class="flex items-center justify-between">
-            <h2 class="text-sm font-semibold text-zinc-900">สรุปภาพรวมพฤติกรรมการเงินจาก AI</h2>
-            <span class="text-[11px] text-zinc-400">บันทึกข้อมูลอัตโนมัติ (รีเฟรชหน้าเว็บข้อมูลไม่หาย)</span>
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <h2 class="text-sm font-semibold text-zinc-900">สรุปภาพรวมพฤติกรรมการเงิน</h2>
+            <span id="ai-mode-status" class="text-xs text-zinc-500">โหมดแยกพื้นฐาน (Rule-Based เร็วทันที)</span>
           </div>
-          <ul id="ai-summary-list" class="space-y-2"></ul>
+          <ul id="ai-summary-list" class="space-y-2.5"></ul>
         </section>
 
         <!-- กราฟสัดส่วนรายจ่าย + ปลายทางที่โอนออกสูงสุด (2 คอลัมน์กว้างๆ สบายตา) -->
@@ -431,6 +443,38 @@
     </button>
   </div>
 
+  <!-- หน้าต่างตั้งค่า Gemini API Key (เก็บเฉพาะในเบราว์เซอร์เครื่องคุณ ไม่ส่งขึ้น GitHub) -->
+  <div id="apikey-modal" class="hidden fixed inset-0 z-50 bg-zinc-900/40 backdrop-blur-[2px] flex items-center justify-center p-4">
+    <div class="w-full max-w-sm bg-white border border-zinc-200 rounded-2xl p-6 shadow-xl space-y-4">
+      <div>
+        <h3 class="text-sm font-semibold text-zinc-900">ตั้งค่า Gemini API Key</h3>
+        <p class="text-xs text-zinc-500 mt-1 leading-relaxed">
+          คีย์นี้จะถูกเก็บไว้ในเบราว์เซอร์ของอุปกรณ์นี้เท่านั้น (Local Storage) เพื่อความปลอดภัยและไม่ให้คีย์หลุดขึ้น GitHub สาธารณะ
+        </p>
+      </div>
+
+      <div class="space-y-1.5">
+        <label class="text-xs font-medium text-zinc-700">Google Gemini API Key</label>
+        <input id="gemini-apikey-input" type="password" placeholder="วาง API Key ของคุณที่นี่..."
+          onkeydown="if(event.key==='Enter') window.TangHai.saveApiKeyAndEnableAI()"
+          class="w-full bg-white border border-zinc-300 rounded-xl px-3.5 py-2.5 text-xs text-zinc-900 focus:outline-none focus:border-zinc-900" />
+      </div>
+
+      <div class="flex items-center justify-end gap-2 pt-1">
+        <button onclick="window.TangHai.closeApiKeyModal()"
+          class="px-3.5 py-2 rounded-xl border border-zinc-200 bg-white hover:bg-zinc-50 text-xs font-medium text-zinc-700 transition">
+          ยกเลิก
+        </button>
+        <button onclick="window.TangHai.saveApiKeyAndEnableAI()"
+          class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold transition">
+          บันทึกและเปิดโหมด AI
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- โหลดไฟล์ตั้งค่าคีย์ในเครื่อง (ถูกบล็อกด้วย .gitignore ไม่ขึ้น GitHub) -->
+  <script src="js/config.local.js"></script>
   <script src="js/sampleData.js"></script>
   <script src="js/memoryStore.js"></script>
   <script src="js/pdfParser.js"></script>
