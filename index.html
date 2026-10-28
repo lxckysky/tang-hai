@@ -28,79 +28,95 @@
         font-size: 16px !important;
       }
     }
+    /* ซ่อน Scrollbar แนวนอนในแถบฟิลเตอร์บนมือถือ */
+    .no-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+    .no-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+    /* iPhone Safe Area สำหรับ Home bar */
+    .safe-bottom {
+      padding-bottom: calc(0.5rem + env(safe-area-inset-bottom, 0px));
+    }
   </style>
 </head>
-<body class="min-h-screen antialiased pb-24 lg:pb-10">
+<body class="min-h-screen antialiased pb-28 lg:pb-12">
 
   <!-- แจ้งเตือนสถานะ -->
   <div id="status-toast" class="hidden fixed bottom-20 lg:bottom-6 right-4 left-4 sm:left-auto z-50 bg-zinc-900 text-white px-4 py-3 rounded-xl shadow-lg text-sm font-medium text-center sm:text-left">
     <span id="status-toast-text">บันทึกข้อมูลเรียบร้อย</span>
   </div>
 
-  <!-- Top Header -->
+  <!-- Top Header (Responsive เต็มรูปแบบ ไม่เบียดในทุกหน้าจอ iPhone, iPad, PC) -->
   <header class="bg-white border-b border-zinc-200 sticky top-0 z-30">
-    <div class="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-3">
-      <div class="flex items-center gap-3 min-w-0">
+    <div class="max-w-6xl mx-auto px-3 sm:px-6 h-16 flex items-center justify-between gap-2 sm:gap-4">
+      <div class="flex items-center gap-2 sm:gap-3 min-w-0 shrink">
         <div class="w-8 h-8 rounded-lg bg-zinc-900 text-white flex items-center justify-center text-xs font-bold shrink-0">
           TH
         </div>
         <div class="truncate">
-          <div class="text-sm font-semibold text-zinc-900 truncate" id="file-meta-title">TangHai</div>
-          <div class="text-xs text-zinc-500 truncate" id="file-meta-sub">ระบบวิเคราะห์รายการเดินบัญชี</div>
+          <div class="text-xs sm:text-sm font-semibold text-zinc-900 truncate" id="file-meta-title">TangHai</div>
+          <div class="text-[11px] sm:text-xs text-zinc-500 truncate" id="file-meta-sub">ระบบวิเคราะห์รายการเดินบัญชี</div>
         </div>
       </div>
 
-      <!-- เมนูสลับหน้าบน PC / iPad แนวนอน -->
-      <nav id="desktop-nav" class="hidden md:flex items-center gap-1 bg-zinc-100 p-1 rounded-xl">
+      <!-- เมนูสลับหน้าบน PC และ iPad แนวนอน (lg: 1024px ขึ้นไป ไม่เกะกะบน iPad แนวตั้ง) -->
+      <nav id="desktop-nav" class="hidden lg:flex items-center gap-1 bg-zinc-100 p-1 rounded-xl shrink-0">
         <button data-page="OVERVIEW" onclick="window.TangHai.switchPage('OVERVIEW')"
-          class="nav-page-btn px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-white text-zinc-900 shadow-sm transition">
+          class="nav-page-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-white text-zinc-900 shadow-sm transition">
           ภาพรวม
         </button>
         <button data-page="PRIORITY" onclick="window.TangHai.switchPage('PRIORITY')"
-          class="nav-page-btn px-3.5 py-1.5 rounded-lg text-xs font-medium text-zinc-600 hover:text-zinc-900 transition flex items-center gap-1.5">
+          class="nav-page-btn px-3 py-1.5 rounded-lg text-xs font-medium text-zinc-600 hover:text-zinc-900 transition flex items-center gap-1.5">
           <span>จัดหมวดหมู่</span>
           <span id="nav-badge-priority" class="px-1.5 py-0.2 rounded-full bg-zinc-200 text-zinc-700 text-[10px] font-bold">0</span>
         </button>
         <button data-page="TRANSACTIONS" onclick="window.TangHai.switchPage('TRANSACTIONS')"
-          class="nav-page-btn px-3.5 py-1.5 rounded-lg text-xs font-medium text-zinc-600 hover:text-zinc-900 transition">
+          class="nav-page-btn px-3 py-1.5 rounded-lg text-xs font-medium text-zinc-600 hover:text-zinc-900 transition">
           รายการทั้งหมด
         </button>
         <button data-page="ACCOUNTS" onclick="window.TangHai.switchPage('ACCOUNTS')"
-          class="nav-page-btn px-3.5 py-1.5 rounded-lg text-xs font-medium text-zinc-600 hover:text-zinc-900 transition">
+          class="nav-page-btn px-3 py-1.5 rounded-lg text-xs font-medium text-zinc-600 hover:text-zinc-900 transition">
           บัญชีของฉัน & สมุดจำ
         </button>
       </nav>
 
-      <div class="flex items-center gap-2 shrink-0">
-        <!-- ปุ่มคู่มือรูปแบบธนาคารและคอลัมน์ แสดงจุดเดียวบน Bar ด้านบนตลอดเวลา -->
+      <div class="flex items-center gap-1.5 sm:gap-2 shrink-0">
+        <!-- ปุ่มคู่มือรูปแบบธนาคารและคอลัมน์ แสดงบน Bar ด้านบนจุดเดียว สวยงามไม่เบียด -->
         <button onclick="window.TangHai.openBankGuideModal()"
-          class="px-3 py-2 rounded-lg border border-zinc-200 bg-white hover:bg-zinc-50 text-xs font-medium text-zinc-700 transition" title="ตรวจสอบธนาคารและรูปแบบคอลัมน์ที่รองรับ">
-          รูปแบบที่รองรับ
+          class="px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-lg border border-zinc-200 bg-white hover:bg-zinc-50 text-[11px] sm:text-xs font-medium text-zinc-700 transition shrink-0" title="ตรวจสอบธนาคารและรูปแบบคอลัมน์ที่รองรับ">
+          <span class="hidden sm:inline">รูปแบบที่รองรับ</span>
+          <span class="sm:hidden">รูปแบบ</span>
         </button>
 
-        <div id="header-actions" class="hidden flex items-center gap-2 shrink-0">
-          <!-- ปุ่มสลับโหมด พื้นฐาน vs Gemini AI ใน 1 คลิก -->
-          <div class="flex items-center bg-zinc-100 p-1 rounded-xl border border-zinc-200">
+        <div id="header-actions" class="hidden flex items-center gap-1.5 sm:gap-2 shrink-0">
+          <!-- ปุ่มสลับโหมด พื้นฐาน vs Gemini AI (Responsive ย่อข้อความบนจอเล็ก) -->
+          <div class="flex items-center bg-zinc-100 p-0.5 sm:p-1 rounded-xl border border-zinc-200 shrink-0">
             <button id="mode-btn-basic" onclick="window.TangHai.setAnalysisMode('BASIC')"
-              class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-zinc-900 text-white shadow-sm transition">
-              โหมดพื้นฐาน
+              class="px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg text-[11px] sm:text-xs font-semibold bg-zinc-900 text-white shadow-sm transition">
+              <span class="hidden sm:inline">โหมดพื้นฐาน</span>
+              <span class="sm:hidden">พื้นฐาน</span>
             </button>
             <button id="mode-btn-ai" onclick="window.TangHai.setAnalysisMode('AI')"
-              class="px-3 py-1.5 rounded-lg text-xs font-medium text-zinc-600 hover:text-zinc-900 transition">
-              โหมด Gemini AI
+              class="px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg text-[11px] sm:text-xs font-medium text-zinc-600 hover:text-zinc-900 transition">
+              <span class="hidden sm:inline">โหมด Gemini AI</span>
+              <span class="sm:hidden">AI</span>
             </button>
           </div>
 
           <button onclick="window.TangHai.exportCSV()"
-            class="hidden sm:inline-block px-3 py-2 rounded-lg border border-zinc-200 bg-white hover:bg-zinc-50 text-xs font-medium text-zinc-700 transition">
+            class="hidden md:inline-block px-3 py-2 rounded-lg border border-zinc-200 bg-white hover:bg-zinc-50 text-xs font-medium text-zinc-700 transition">
             CSV
           </button>
           <button onclick="window.TangHai.clearSession()"
-            class="px-3 py-2 rounded-lg border border-zinc-200 bg-white hover:bg-rose-50 hover:text-rose-600 text-xs font-medium text-zinc-600 transition">
+            class="px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg border border-zinc-200 bg-white hover:bg-rose-50 hover:text-rose-600 text-[11px] sm:text-xs font-medium text-zinc-600 transition shrink-0">
             ล้างข้อมูล
           </button>
-          <label class="cursor-pointer px-3 py-2 rounded-lg bg-zinc-900 hover:bg-zinc-800 text-xs font-medium text-white transition">
-            + เพิ่มสเตทเมนต์
+          <label class="cursor-pointer px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-lg bg-zinc-900 hover:bg-zinc-800 text-[11px] sm:text-xs font-medium text-white transition shrink-0">
+            <span class="hidden sm:inline">+ เพิ่มสเตทเมนต์</span>
+            <span class="sm:hidden">+ เพิ่ม</span>
             <input type="file" accept=".pdf" class="pdf-append-input hidden" />
           </label>
         </div>
@@ -297,25 +313,25 @@
             </div>
 
             <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
-              <div class="flex flex-wrap items-center gap-1.5">
+              <div class="flex items-center gap-1.5 overflow-x-auto pb-1.5 -mx-4 px-4 sm:mx-0 sm:px-0 sm:pb-0 sm:flex-wrap no-scrollbar">
                 <button data-filter="ALL" onclick="window.TangHai.setFilter('ALL')"
-                  class="filter-btn px-3.5 py-2 rounded-xl text-xs font-medium bg-zinc-900 text-white">
+                  class="filter-btn px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl text-xs font-medium bg-zinc-900 text-white whitespace-nowrap shrink-0">
                   ทั้งหมด (<span id="count-all">0</span>)
                 </button>
                 <button data-filter="TRANSFER_PERSON" onclick="window.TangHai.setFilter('TRANSFER_PERSON')"
-                  class="filter-btn px-3.5 py-2 rounded-xl text-xs font-medium bg-white text-zinc-600 hover:bg-zinc-100 border border-zinc-200">
+                  class="filter-btn px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl text-xs font-medium bg-white text-zinc-600 hover:bg-zinc-100 border border-zinc-200 whitespace-nowrap shrink-0">
                   โอนให้บุคคล (<span id="count-person">0</span>)
                 </button>
                 <button data-filter="UNKNOWN" onclick="window.TangHai.setFilter('UNKNOWN')"
-                  class="filter-btn px-3.5 py-2 rounded-xl text-xs font-medium bg-white text-zinc-600 hover:bg-zinc-100 border border-zinc-200">
+                  class="filter-btn px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl text-xs font-medium bg-white text-zinc-600 hover:bg-zinc-100 border border-zinc-200 whitespace-nowrap shrink-0">
                   อื่นๆ (<span id="count-unknown">0</span>)
                 </button>
                 <button data-filter="AI_GUESS" onclick="window.TangHai.setFilter('AI_GUESS')"
-                  class="filter-btn px-3.5 py-2 rounded-xl text-xs font-medium bg-white text-zinc-600 hover:bg-zinc-100 border border-zinc-200">
+                  class="filter-btn px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl text-xs font-medium bg-white text-zinc-600 hover:bg-zinc-100 border border-zinc-200 whitespace-nowrap shrink-0">
                   แยกจากชื่อร้าน (<span id="count-ai">0</span>)
                 </button>
                 <button data-filter="MEMORY" onclick="window.TangHai.setFilter('MEMORY')"
-                  class="filter-btn px-3.5 py-2 rounded-xl text-xs font-medium bg-white text-zinc-600 hover:bg-zinc-100 border border-zinc-200">
+                  class="filter-btn px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl text-xs font-medium bg-white text-zinc-600 hover:bg-zinc-100 border border-zinc-200 whitespace-nowrap shrink-0">
                   จำจากสมุด (<span id="count-memory">0</span>)
                 </button>
               </div>
@@ -395,8 +411,8 @@
     </div>
   </main>
 
-  <!-- แถบเมนูด้านล่างสำหรับ iPhone / มือถือ (Bottom Tab Bar) -->
-  <nav id="mobile-bottom-nav" class="hidden md:hidden fixed bottom-0 inset-x-0 z-40 bg-white/95 backdrop-blur border-t border-zinc-200 px-2 py-2">
+  <!-- แถบเมนูด้านล่างสำหรับ iPhone, มือถือ และ iPad แนวตั้ง (Bottom Tab Bar) -->
+  <nav id="mobile-bottom-nav" class="hidden lg:hidden fixed bottom-0 inset-x-0 z-40 bg-white/95 backdrop-blur border-t border-zinc-200 px-2 pt-2 safe-bottom">
     <div class="grid grid-cols-4 gap-1 max-w-md mx-auto">
       <button data-page="OVERVIEW" onclick="window.TangHai.switchPage('OVERVIEW')"
         class="mobile-nav-btn py-2 px-1 rounded-xl text-xs font-semibold bg-zinc-900 text-white text-center transition">

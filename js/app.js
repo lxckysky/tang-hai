@@ -442,17 +442,23 @@ function updateModeSwitcherUI() {
 
   if (btnBasic && btnAI) {
     btnBasic.className = !isAI
-      ? 'px-3 py-1.5 rounded-lg text-xs font-semibold bg-zinc-900 text-white shadow-sm transition'
-      : 'px-3 py-1.5 rounded-lg text-xs font-medium text-zinc-600 hover:text-zinc-900 transition';
+      ? 'px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg text-[11px] sm:text-xs font-semibold bg-zinc-900 text-white shadow-sm transition'
+      : 'px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg text-[11px] sm:text-xs font-medium text-zinc-600 hover:text-zinc-900 transition';
     btnAI.className = isAI
-      ? 'px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600 text-white shadow-sm transition'
-      : 'px-3 py-1.5 rounded-lg text-xs font-medium text-zinc-600 hover:text-zinc-900 transition';
-    btnAI.textContent = AppState.isAiLoading ? 'กำลังถาม Gemini AI...' : 'โหมด Gemini AI';
+      ? 'px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg text-[11px] sm:text-xs font-semibold bg-indigo-600 text-white shadow-sm transition'
+      : 'px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg text-[11px] sm:text-xs font-medium text-zinc-600 hover:text-zinc-900 transition';
+    
+    btnBasic.innerHTML = '<span class="hidden sm:inline">โหมดพื้นฐาน</span><span class="sm:hidden">พื้นฐาน</span>';
+    if (AppState.isAiLoading) {
+      btnAI.innerHTML = '<span class="hidden sm:inline">กำลังวิเคราะห์...</span><span class="sm:hidden">คิดอยู่...</span>';
+    } else {
+      btnAI.innerHTML = '<span class="hidden sm:inline">โหมด Gemini AI</span><span class="sm:hidden">AI</span>';
+    }
   }
 
   if (aiStatusText) {
     aiStatusText.textContent = isAI
-      ? 'เปิดใช้ Gemini 2.5 Flash ช่วยแยกหมวดหมู่และเขียนคำใบ้'
+      ? 'เปิดใช้ Gemini Flash ช่วยวิเคราะห์และแจกแจงหมวดหมู่อัตโนมัติ'
       : 'โหมดแยกพื้นฐาน (Rule-Based เร็วทันที)';
   }
 }
@@ -1062,28 +1068,33 @@ function renderTransactionTable() {
   if (mobileContainer) {
     mobileContainer.innerHTML = filtered.map(tx => {
       return `
-        <div class="p-4 space-y-3 bg-white">
-          <div class="flex items-start justify-between gap-2">
-            <div class="min-w-0">
-              <div class="text-sm font-semibold text-zinc-900 break-words">${tx.description}</div>
-              <div class="text-xs text-zinc-500 mt-0.5">${tx.date} เวลา ${tx.time} · ${tx.sourceLabel}</div>
+        <div class="p-3.5 sm:p-4 space-y-2.5 bg-white">
+          <div class="flex items-start justify-between gap-2.5">
+            <div class="min-w-0 pr-1">
+              <div class="text-xs sm:text-sm font-semibold text-zinc-900 break-words leading-snug">${tx.description}</div>
+              <div class="text-[11px] text-zinc-500 mt-1 flex flex-wrap items-center gap-1.5">
+                <span class="tabular-nums">${tx.date}</span>
+                <span class="tabular-nums">${tx.time}</span>
+                <span>·</span>
+                <span class="px-1.5 py-0.2 rounded bg-zinc-100 text-zinc-700 text-[10px] font-medium">${tx.sourceLabel}</span>
+              </div>
             </div>
             <div class="text-right tabular-nums shrink-0">
-              <div class="text-sm font-bold ${tx.credit > 0 ? 'text-emerald-700' : 'text-zinc-900'}">
+              <div class="text-xs sm:text-sm font-bold ${tx.credit > 0 ? 'text-emerald-700' : 'text-zinc-900'}">
                 ${tx.credit > 0 ? `+${formatNumber(tx.credit)}` : `-${formatNumber(tx.debit)}`}
               </div>
-              <div class="text-[11px] text-zinc-400">คงเหลือ ${formatNumber(tx.balance)}</div>
+              <div class="text-[10px] sm:text-[11px] text-zinc-400">คงเหลือ ${formatNumber(tx.balance)}</div>
             </div>
           </div>
-          <div class="space-y-2 pt-1">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
             <select id="cat-m-${tx.id}" onchange="window.TangHai.autoSaveRowChange('${tx.id}', true)"
-              class="w-full bg-white border border-zinc-200 rounded-xl px-3 py-2 text-xs text-zinc-900">
+              class="w-full bg-zinc-50 border border-zinc-200 rounded-xl px-2.5 py-1.5 text-xs text-zinc-900">
               ${categoryOptionsHtml(tx.category)}
             </select>
             <input id="note-m-${tx.id}" type="text" value="${tx.userNote || ''}"
               onchange="window.TangHai.autoSaveRowChange('${tx.id}', true)"
-              placeholder="พิมพ์ช่วยจำแล้วแตะออก (บันทึกอัตโนมัติ)..."
-              class="w-full bg-white border border-zinc-200 rounded-xl px-3 py-2 text-xs text-zinc-900 placeholder-zinc-400" />
+              placeholder="พิมพ์ช่วยจำ..."
+              class="w-full bg-zinc-50 border border-zinc-200 rounded-xl px-2.5 py-1.5 text-xs text-zinc-900 placeholder-zinc-400" />
           </div>
         </div>
       `;
