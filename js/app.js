@@ -20,7 +20,7 @@ const AppState = {
   selfAccounts: [],
   priorityGroups: [],
   stats: null,
-  analysisMode: localStorage.getItem('tanghai_analysis_mode') || 'BASIC',
+  analysisMode: localStorage.getItem('tanghai_analysis_mode') || 'AI',
   isAiLoading: false,
   isAppendMode: false,
   activeFilter: 'ALL',
@@ -95,6 +95,7 @@ window.TangHai.loadSampleData = function() {
   AppState.rawTransactions = sample.transactions.map(t => ({ ...t, sourceFileId: fileId }));
   runAnalysisAndRender();
   notify('โหลดข้อมูลสเตทเมนต์ตัวอย่างเรียบร้อยแล้ว');
+  triggerAutoAIAnalysis();
 };
 
 window.TangHai.acceptConsent = function() {
@@ -1228,6 +1229,29 @@ function mergeParsedStatement(parsed, fileName, isAppend = false) {
   }
 
   runAnalysisAndRender();
+  triggerAutoAIAnalysis();
+}
+
+async function triggerAutoAIAnalysis() {
+  const canCallAI = window.location.protocol.startsWith('http') || Boolean(window.TangHai.Categorizer?.getApiKey());
+  if (!canCallAI || !AppState.rawTransactions.length) return;
+
+  try {
+    AppState.analysisMode = 'AI';
+    localStorage.setItem('tanghai_analysis_mode', 'AI');
+    updateModeSwitcherUI();
+    AppState.isAiLoading = true;
+    updateModeSwitcherUI();
+    notify('Gemini AI กำลังวิเคราะห์และแยกหมวดหมู่อัตโนมัติ...');
+    const res = await window.TangHai.Categorizer.runGeminiLLMAnalysis(AppState.rawTransactions);
+    AppState.isAiLoading = false;
+    runAnalysisAndRender();
+    notify(res.cached ? 'Gemini AI จัดหมวดหมู่เรียบร้อยแล้ว' : 'Gemini AI วิเคราะห์และจัดหมวดหมู่อัตโนมัติสำเร็จ!');
+  } catch (err) {
+    AppState.isAiLoading = false;
+    updateModeSwitcherUI();
+    // หากเกิดข้อผิดพลาด ให้ fallback ใช้ Rule-based อย่างราบรื่น ไม่รบกวนผู้ใช้
+  }
 }
 
 function openPasswordModal(fileName) {

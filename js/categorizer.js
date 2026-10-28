@@ -17,7 +17,9 @@ const MERCHANT_AI_RULES = [
       'SUSHI', 'SHABUSHI', 'BAR B Q', 'BARBQ', 'BAR B Q PLAZA', 'SWENSENS',
       'AMAZON', 'INTHANIN', 'CHA TRA MUE', 'ชาตรามือ', 'KOI THE', 'KAMU',
       'BEARHOUSE', 'GAGA', 'HAIDILAO', 'MO-MO', 'S&P', 'CHESTER', 'KOUEN',
-      'BONCHON', 'BURGER KING', 'YAYOI', 'FUJI', 'OISHI', 'SUSHIRO', 'SUKI TEENOI', 'สุกี้ตี๋น้อย'
+      'BONCHON', 'BURGER KING', 'YAYOI', 'FUJI', 'OISHI', 'SUSHIRO', 'SUKI TEENOI', 'สุกี้ตี๋น้อย',
+      'ข้าวมันไก่', 'ข้าวหมูแดง', 'ก๋วยเตี๋ยว', 'ตามสั่ง', 'หมูกระทะ', 'ส้มตำ', 'ชาไข่มุก', 'บาร์บีคิว',
+      'บุฟเฟต์', 'เบเกอรี่', 'BAKERY', 'KITCHEN', 'COFFEE', 'TEA', 'NOODLE', 'RESTAURANT', 'DINING', 'BISTRO'
     ],
     category: 'FOOD'
   },
@@ -36,7 +38,7 @@ const MERCHANT_AI_RULES = [
       'เอ็มอาร์ที', 'MRT', 'ทางด่วนและรถไฟฟ้า', 'BTS', 'BEM',
       'ARL', 'SRTET', 'รถไฟฟ้า', 'ทางด่วน', 'EXAT', 'EASY PASS', 'M-FLOW', 'TOLLWAY',
       'GRABTAXI', 'BOLT', 'PTT', 'OR OIL', 'CALTEX', 'SHELL', 'BANGCHAK', 'บางจาก',
-      'SUSCO', 'PEA VOLTA', 'EV CHARGE', 'LINE MAN RIDE'
+      'SUSCO', 'PEA VOLTA', 'EV CHARGE', 'LINE MAN RIDE', 'วิน', 'แท็กซี่', 'TAXI', 'น้ำมัน'
     ],
     category: 'TRANSPORT'
   },
@@ -62,7 +64,8 @@ const MERCHANT_AI_RULES = [
     keywords: [
       'METROPOLITAN ELECTRICITY', 'การไฟฟ้า', 'PEA', 'MEA', 'ประปา', 'MWA', 'PWA',
       'AIS POSTPAID', 'AIS FIBRE', 'TRUE MOVE', 'TRUE ONLINE', 'DTAC', '3BB',
-      'NT BROADBAND', 'NETFLIX', 'SPOTIFY', 'YOUTUBE', 'GOOGLE STORAGE', 'ICLOUD'
+      'NT BROADBAND', 'NETFLIX', 'SPOTIFY', 'YOUTUBE', 'GOOGLE STORAGE', 'ICLOUD',
+      'เดอะเรสซิเดนซ์', 'เรสซิเดนซ์', 'RESIDENCE', 'หอพัก', 'อพาร์ตเมนต์', 'คอนโด', 'ค่าเช่า', 'ส่วนกลาง', 'APARTMENT', 'CONDO'
     ],
     category: 'BILLS'
   },
@@ -88,6 +91,32 @@ function isLikelyPersonalTransfer(desc = '') {
   const noAcct = clean.replace(/^[A-Z0-9\/\-]+\s*/i, '').replace(/x\d{4,}\s*/i, '').trim();
   if (PERSON_KEYWORD_REGEX.test(noAcct) || THAI_NAME_PATTERN.test(noAcct)) return true;
   return false;
+}
+
+function inferContextCategory(tx = {}) {
+  const amt = tx.debit || tx.amount || 0;
+  const time = tx.time || '';
+  const desc = (tx.description || '').toUpperCase();
+  const hour = parseInt(time.split(':')[0], 10);
+
+  // 1. ค่าเช่าหอพัก / ที่พัก / คอนโด / ค่าบริการส่วนกลาง
+  if (amt >= 2000 && (desc.includes('เรสซิเดนซ์') || desc.includes('RESIDENCE') || desc.includes('หอพัก') || desc.includes('คอนโด') || desc.includes('อพาร์ตเมนต์') || desc.includes('ค่าเช่า') || desc.includes('ส่วนกลาง') || desc.includes('บจก.'))) {
+    return { category: 'BILLS', label: 'ค่าเช่าห้อง / ค่าหอพัก', hint: 'ค่าเช่าห้อง / ที่พักรายเดือน' };
+  }
+
+  // 2. มื้ออาหารยอดนิยม (ยอดไม่เกิน 220 บาท ในช่วงเวลามื้ออาหาร เช้า/เที่ยง/เย็น)
+  if (amt > 0 && amt <= 220 && !isNaN(hour)) {
+    if ((hour >= 7 && hour <= 9) || (hour >= 11 && hour <= 14) || (hour >= 17 && hour <= 21)) {
+      return { category: 'FOOD', label: 'อาหารช่วงมื้อ', hint: `ค่าอาหารช่วงเวลา ${time}` };
+    }
+  }
+
+  // 3. ค่าเดินทาง / วิน / รถไฟฟ้า
+  if (desc.includes('วิน') || desc.includes('แท็กซี่') || desc.includes('TAXI') || desc.includes('GRAB') || desc.includes('BOLT')) {
+    return { category: 'TRANSPORT', label: 'การเดินทาง', hint: 'ค่าโดยสาร / การเดินทาง' };
+  }
+
+  return null;
 }
 
 function extractOwnerCoreNames(meta = {}) {
@@ -295,22 +324,36 @@ window.TangHai.Categorizer = {
           llmHint: geminiCached ? geminiCached.hint : '',
           needsReview: false
         };
-      } else if (isLikelyPersonalTransfer(merchantName)) {
-        batchResults[merchantName] = {
-          category: 'TRANSFER_PERSON',
-          source: 'RULE',
-          sourceLabel: 'โอนให้บุคคล',
-          llmHint: geminiCached ? geminiCached.hint : 'โอนให้บุคคล / พร้อมเพย์',
-          needsReview: false
-        };
       } else {
-        batchResults[merchantName] = {
-          category: 'UNKNOWN',
-          source: 'RULE',
-          sourceLabel: 'อื่นๆ',
-          llmHint: geminiCached ? geminiCached.hint : '',
-          needsReview: false
-        };
+        // ตรวจสอบบริบทการใช้จ่าย (ยอดเงิน และช่วงเวลา) เพื่อความแม่นยำสูงสุด
+        const sampleTx = rawTransactions.find(t => (t.normKey || window.TangHai.MemoryStore.normalizeKey(t.description)) === merchantName);
+        const contextCat = sampleTx ? inferContextCategory(sampleTx) : null;
+
+        if (contextCat) {
+          batchResults[merchantName] = {
+            category: contextCat.category,
+            source: 'AI_GUESS',
+            sourceLabel: contextCat.label,
+            llmHint: geminiCached ? geminiCached.hint : contextCat.hint,
+            needsReview: false
+          };
+        } else if (isLikelyPersonalTransfer(merchantName)) {
+          batchResults[merchantName] = {
+            category: 'TRANSFER_PERSON',
+            source: 'RULE',
+            sourceLabel: 'โอนให้บุคคล',
+            llmHint: geminiCached ? geminiCached.hint : 'โอนให้บุคคล / พร้อมเพย์',
+            needsReview: false
+          };
+        } else {
+          batchResults[merchantName] = {
+            category: 'UNKNOWN',
+            source: 'RULE',
+            sourceLabel: 'อื่นๆ',
+            llmHint: geminiCached ? geminiCached.hint : '',
+            needsReview: false
+          };
+        }
       }
     }
 
@@ -406,10 +449,7 @@ window.TangHai.Categorizer = {
       const matchedBasic = MERCHANT_AI_RULES.find(r => r.keywords.some(kw => upper.includes(kw.toUpperCase())));
       if (matchedBasic) continue;
 
-      // 6. ข้ามรายการที่เป็นชื่อบุคคลธรรมดา (ระบบจัดเป็นโอนให้บุคคลอยู่แล้ว)
-      if (isLikelyPersonalTransfer(normKey)) continue;
-
-      // ส่งให้ AI เฉพาะรายการที่ไม่รู้จักจริงๆ
+      // ส่งให้ AI ช่วยดูเฉพาะรายการที่ไม่คุ้นเคยและยังไม่มีในแคช
       if (!aiCache.merchants[normKey]) {
         seenKeys.add(normKey);
         itemsToAsk.push({
@@ -468,12 +508,19 @@ window.TangHai.Categorizer = {
         ...customCats.map(c => `${c.id} (${c.label})`)
       ];
 
-      const promptText = `คุณคือผู้เชี่ยวชาญวิเคราะห์สเตทเมนต์ธนาคารไทย และระบบผู้ช่วยจัดหมวดหมู่การเงินส่วนบุคคล
-งานที่ 1: วิเคราะห์รายการโอนเงินต่อไปนี้ แล้วเลือกหมวดหมู่ที่เหมาะสมจาก: [${availableCats.join(', ')}]
-กฎสำคัญ:
-- ถ้าเป็นชื่อร้านค้าหรือบริษัท ให้ระบุ category ให้ตรงกับ id หมวดหมู่ด้านบน
-- ถ้าเป็นชื่อบุคคลล้วนๆ ให้ใส่ category เป็น "TRANSFER_PERSON" และเขียน hint สั้นๆ (ไม่เกิน 7 คำ)
-- ถ้าไม่ตรงกับอะไรเลย ให้ใส่ "UNKNOWN"
+      const promptText = `คุณคือผู้เชี่ยวชาญวิเคราะห์สเตทเมนต์ธนาคารไทย และระบบผู้ช่วยจัดหมวดหมู่การเงินส่วนบุคคลอัตโนมัติ
+งานที่ 1: วิเคราะห์รายการโอนเงินต่อไปนี้ แล้วเลือก category ที่ถูกต้องที่สุดจาก: [${availableCats.join(', ')}]
+เกณฑ์การตัดสินใจอย่างแม่นยำ (สำคัญมาก):
+1. ดูชื่อผู้รับ (key), ยอดเงิน (amount) และเวลา (time) ประกอบกัน:
+   - รายการที่เป็นชื่อร้านค้า, ตลาด, ข้าว, กาแฟ, ชา, ขนม หรือยอดโอน 25 - 200 บาท ในช่วงเวลามื้ออาหาร (07:00-09:30, 11:30-14:00, 17:30-21:30) แม้จะเป็นการโอน PromptPay ให้จัดเป็น "FOOD" (อาหารและเครื่องดื่ม)
+   - ยอดโอนค่าที่พัก, ค่าหอพัก, อพาร์ตเมนต์, คอนโด, หรือค่าบิลรายเดือน (ปกติ 2,500 - 15,000 บาท ช่วงต้นเดือน/สิ้นเดือน หรือมีคำว่า เดอะเรสซิเดนซ์, หอพัก, คอนโด) ให้จัดเป็น "BILLS"
+   - ยอดโอนค่าเดินทาง, รถไฟฟ้า, แท็กซี่, วินมอเตอร์ไซค์, น้ำมัน ให้จัดเป็น "TRANSPORT"
+   - ยอดซื้อสินค้า, ช้อปปิ้ง, เสื้อผ้า, สั่งของออนไลน์ ให้จัดเป็น "SHOPPING"
+   - ยอดค่าหนังสือ, ค่ายา, โรงพยาบาล, คลินิก ให้จัดเป็น "EDUCATION_HEALTH"
+2. กรณีโอนเงินให้บุคคล (PromptPay หรือชื่อบุคคล):
+   - ถ้าดูจากยอดเงินและเวลาแล้วเข้าข่ายค่าอาหาร ให้ระบุเป็น "FOOD" พร้อม hint สั้นๆ เช่น "ค่าอาหาร/สแกนจ่ายร้านค้า"
+   - ถ้าเป็นการโอนให้เพื่อน/บุคคลทั่วไปที่ไม่มีบริบทของค่าอาหาร/สินค้า/บริการ (เช่น โอนเลขกลมๆ คืนเงิน) จึงจัดเป็น "TRANSFER_PERSON" (โอนให้บุคคล)
+3. รายการที่ไม่สามารถระบุได้จริงๆ ให้ใส่ "UNKNOWN" (อื่นๆ)
 รายการ: ${JSON.stringify(itemsToAsk.slice(0, 40))}
 
 งานที่ 2: วิเคราะห์พฤติกรรมการใช้จ่ายเฉพาะบุคคล (Personalized Spending Choices):
