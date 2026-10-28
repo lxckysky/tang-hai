@@ -1,0 +1,17 @@
+{
+  "name": "tang-hai",
+  "version": "1.0.0",
+  "description": "Multi-Bank Statement Analyzer & AI Categorizer",
+  "type": "module",
+  "scripts": {
+    "start": "npx serve ."
+  },
+  "keywords": [
+    "statement-analyzer",
+    "gemini-ai",
+    "pdf-parser",
+    "personal-finance"
+  ],
+  "author": "lxckysky",
+  "license": "MIT"
+}

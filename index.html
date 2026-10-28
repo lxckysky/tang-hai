@@ -483,8 +483,15 @@
     </div>
   </div>
 
-  <!-- โหลดไฟล์ตั้งค่าคีย์ในเครื่อง (ถูกบล็อกด้วย .gitignore ไม่ขึ้น GitHub) -->
-  <script src="js/config.local.js"></script>
+  <!-- โหลดไฟล์ตั้งค่าคีย์ในเครื่องแบบเงียบๆ หากมีอยู่ (ถูกบล็อกด้วย .gitignore ไม่ขึ้น GitHub) -->
+  <script>
+    (function() {
+      const s = document.createElement('script');
+      s.src = 'js/config.local.js';
+      s.onerror = function() {}; // ละเว้นเงียบๆ เมื่อรันบน Production ที่ไม่มีไฟล์นี้
+      document.head.appendChild(s);
+    })();
+  </script>
   <script src="js/sampleData.js"></script>
   <script src="js/memoryStore.js"></script>
   <script src="js/pdfParser.js"></script>

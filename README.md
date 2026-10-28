@@ -1,52 +1,110 @@
-# TangHai — Multi-Bank Statement Analyzer & AI Categorizer
-> โปรเจกต์รอบสัมภาษณ์ **Young Webmaster Camp (YWC) — สาขา Web Programming**  
-> ระบบแกะรอยและจัดหมวดหมู่ไฟล์ e-Statement ธนาคารอัตโนมัติ รองรับการรวมหลายบัญชีข้ามธนาคารและประมวลผลร่วมกับ AI
+# TangHai (ตังค์หาย) — Multi-Bank Statement Analyzer & AI Categorizer
+> **Web Programming · โปรเจกต์ก่อนวันสัมภาษณ์ Young Webmaster Camp (YWC)**  
+> ระบบแกะรอยและจัดหมวดหมู่ไฟล์ e-Statement ธนาคารรายเดือนอัตโนมัติ เพื่อดูพฤติกรรมการใช้จ่ายที่แท้จริง รองรับการรวมหลายบัญชีข้ามธนาคารและประมวลผลร่วมกับ AI
+
+---
+
+## 📌 ข้อมูลสำคัญสำหรับการส่งงาน (Submission Details)
+
+* **Live URL (ใช้งานได้จริง):** `https://tang-hai.vercel.app` *(หรือ URL ที่คุณได้จากการ Deploy บน Vercel)*
+* **GitHub Repository:** `https://github.com/lxckysky/tang-hai`
+* **Tech Stack:**
+  * **Frontend:** HTML5, Tailwind CSS (Utility-First Responsive Design), Vanilla JavaScript (ES6+)
+  * **PDF & Client-Side Engine:** `PDF.js` (Mozilla) — ถอดรหัสและดึงข้อมูล Text จาก PDF ใน Browser 100%
+  * **Backend / Serverless:** Vercel Serverless Functions (Node.js Runtime, ES Module)
+  * **AI & LLM Model:** Google Gemini Flash API (`gemini-2.5-flash` / `gemini-2.0-flash`) พร้อมระบบ Model Fallback
+  * **Local Storage & Memory:** Browser `localStorage` (Privacy-First, ไม่มีฐานข้อมูลภายนอกเก็บข้อมูลการเงิน)
 
 ---
 
 ## 1. ที่มาของปัญหา (Problem Statement)
-การจดบันทึกรายรับ-รายจ่ายด้วยตัวเองทุกวันเป็นเรื่องที่ทำต่อเนื่องได้ยากในยุคที่ทุกคนสแกนจ่ายผ่าน QR PromptPay แต่เมื่อดาวน์โหลดไฟล์ **e-Statement (PDF)** รายเดือนจากธนาคารมาดู กลับพบปัญหาสำคัญ:
-1. **ไฟล์ PDF ติดรหัสผ่าน** ต้องปลดล็อกก่อนจึงจะดึงข้อมูลได้
-2. **มีหลายบัญชีธนาคารและโอนเงินข้ามไปมาระหว่างบัญชีตัวเอง** ทำให้ยอดเงินออกรวมในสเตทเมนต์ดูสูงเกินรายจ่ายจริง
-3. **ชื่อรายการมีทั้งชื่อบริษัทจดทะเบียนและชื่อบุคคลทั่วไป** ยากต่อการแยกแยะด้วยตาเปล่าในตารางกว่าร้อยบรรทัด
+การจดบันทึกรายรับ-รายจ่ายทุกวันเป็นเรื่องยากในชีวิตจริง แต่เมื่อดาวน์โหลดไฟล์ **e-Statement (PDF)** รายเดือนจากธนาคารมาดู กลับพบปัญหาใหญ่ 3 ข้อ:
+1. **ไฟล์ PDF ติดรหัสผ่าน & ความเป็นส่วนตัว (Data Privacy):** ไฟล์สเตทเมนต์มีข้อมูลการเงินที่อ่อนไหว ผู้ใช้ไม่สบายใจที่จะอัปโหลดไฟล์ขึ้นเซิร์ฟเวอร์ภายนอก
+2. **โอนเงินข้ามบัญชีตัวเอง (Self-Transfer):** คนรุ่นใหม่มักมีหลายบัญชี (เช่น บัญชีเงินเดือน KBank โอนไป SCB เพื่อสแกนจ่าย) ทำให้ยอดเงินออกรวมในสเตทเมนต์ดูสูงเกินรายจ่ายจริง (ยอดเงินบวม)
+3. **ชื่อรายการอ่านไม่ออก:** สเตทเมนต์ไทยมักขึ้นเป็นรหัสเครื่อง, สาขา หรือชื่อบุคคล PromptPay ที่นึกไม่ออกว่าคือค่าอะไร
 
 ---
 
-## 2. ฟีเจอร์หลักและสถาปัตยกรรม (Key Features & Architecture)
+## 2. นวัตกรรมและสถาปัตยกรรมระบบ (Key Features & Architecture)
 
-### 2.1 Client-Side PDF Decryption & Universal Multi-Bank Parser (`js/pdfParser.js`)
-* **ถอดรหัส PDF ภายในเบราว์เซอร์ 100% (`PDF.js`):** ไฟล์สเตทเมนต์และรหัสผ่านไม่ถูกอัปโหลดขึ้นเซิร์ฟเวอร์
-* **Universal Balance-Delta Parser:** รองรับโครงสร้างสเตทเมนต์หลายธนาคาร (SCB, KBank, BBL, Krungthai, ttb, Krungsri) โดยใช้สมการคณิตศาสตร์เปรียบเทียบผลต่างยอดคงเหลือ (`currBalance - prevBalance`) เพื่อแยกธุรกรรมเงินเข้า (`Credit`) และเงินออก (`Debit`) ได้อย่างแม่นยำแม้แต่ละธนาคารจะจัดลำดับคอลัมน์ต่างกัน
-* **Multi-Statement Cross-Bank Merger:** สามารถกดปุ่ม **`+ เพิ่มสเตทเมนต์`** เพื่ออัปโหลดไฟล์สเตทเมนต์ของบัญชีที่ 2 หรือ 3 จากต่างธนาคารมารวมวิเคราะห์ในแดชบอร์ดเดียว
+### 2.1 100% Client-Side PDF Decryption & Universal Multi-Bank Parser (`js/pdfParser.js`)
+* **ถอดรหัสเอกสารในเครื่องผู้ใช้:** ใช้ `PDF.js` ปลดล็อกรหัสผ่านและอ่านข้อมูลพิกัดข้อความในเบราว์เซอร์ โดยไม่มีการส่งไฟล์ PDF หรือรหัสผ่านออกนอกเครื่องแม้แต่ไบต์เดียว
+* **Universal Balance-Delta Parser:** แทนที่จะเขียน Regex เจาะจงแต่ละธนาคาร ระบบใช้สมการคณิตศาสตร์เปรียบเทียบผลต่างยอดคงเหลือ:
+  $$\Delta \text{Balance} = \text{currBalance} - \text{prevBalance}$$
+  * ถ้า $\Delta \text{Balance} > 0$ $\rightarrow$ เงินเข้า (`Credit`)
+  * ถ้า $\Delta \text{Balance} < 0$ $\rightarrow$ เงินออก (`Debit`)  
+  ช่วยให้รองรับสเตทเมนต์ได้ทุกธนาคาร (SCB, KBank, BBL, Krungthai, ttb, Krungsri) อย่างแม่นยำ แม้แต่ละธนาคารจะเรียงคอลัมน์ต่างกัน
+* **Multi-Statement Cross-Bank Merger:** กดปุ่ม **`+ เพิ่มสเตทเมนต์`** เพื่อนำบัญชีที่ 2 และ 3 จากต่างธนาคารมารวมเป็นก้อนเดียวได้
 
-### 2.2 การแยกธุรกรรมโอนบัญชีตัวเอง & ระบบจัดหมวดหมู่ 3 ชั้น (`js/categorizer.js`)
-* **Self-Transfer Detection:** ดึงชื่อ-นามสกุลเจ้าของบัญชีจากหัวกระดาษ PDF อัตโนมัติ และแยกธุรกรรมที่มีการโอนเข้า-ออกชื่อเจ้าของบัญชีเองออกจากการคำนวณรายจ่ายจริง (`True Personal Spend`)
-* **3-Tier Categorization + Mode Switcher (`โหมดพื้นฐาน` ↔ `โหมด Gemini AI`):**
-  1. **ชั้นที่ 1 (Memory & Rules):** ตรวจสอบจากสมุดช่วยจำ (`localStorage`) และรหัสธุรกรรมพื้นฐาน
-  2. **ชั้นที่ 2 (Deduplicated AI Batch):** ตัดชื่อร้านค้าที่ซ้ำกันออกด้วย `Set` ก่อนส่งให้ AI วิเคราะห์ในครั้งเดียวเพื่อประหยัดโควตา API
-  3. **ชั้นที่ 3 (Priority Queue):** แสดงรายการที่รอระบุหมวดหมู่โดยเรียงลำดับจาก **ยอดเงินมากสุด → น้อยสุด** พร้อมสร้างหมวดหมู่เพิ่มเติมได้เอง (`Custom Categories`)
+### 2.2 การตัดยอดโอนบัญชีตัวเอง & ระบบจัดหมวดหมู่ 3 ชั้น (`js/categorizer.js`)
+* **Self-Transfer Elimination:** ดึงชื่อเจ้าของบัญชีจากหัวกระดาษ PDF และตรวจจับธุรกรรมที่ชื่อผู้รับตรงกับชื่อตนเอง แล้วแยกออกเป็นหมวดหมู่ `SELF_TRANSFER` ไม่นับรวมใน **รายจ่ายใช้ชีวิตจริง (True Personal Spend)**
+* **3-Tier Categorization Flow:**
+  1. **Tier 1 (Memory & Regex Rules):** ตรวจสอบจากประวัติที่ผู้ใช้เคยตั้งชื่อไว้ในเครื่อง (`localStorage`) และกฎร้านค้าพื้นฐาน
+  2. **Tier 2 (Deduplicated AI Batch):** กรองเฉพาะชื่อร้านค้าที่ไม่ซ้ำกัน (`Set Deduplication`) ก่อนส่งไปให้ Gemini AI เพื่อประหยัดโควตาและลด Token การเรียก API ได้กว่า 70-80%
+  3. **Tier 3 (Priority Review Queue):** ดึงรายการที่ไม่รู้จักมาเรียงจาก **ยอดเงินมากสุด $\rightarrow$ น้อยสุด** พร้อมแสดง **✨ คำใบ้จาก AI** (เช่น ค่าเช่าต้นเดือน, หารค่าอาหาร) เพื่อให้ระบุได้เสร็จในไม่กี่คลิก
 
-### 2.3 Serverless Backend Proxy (`api/gemini.js`)
-* ใช้ Vercel Serverless Function เชื่อมต่อกับ Google Gemini Flash โดยเก็บ `GEMINI_API_KEY` ไว้ใน Environment Variables ฝั่งเซิร์ฟเวอร์ เพื่อให้ผู้ใช้งานทุกคนบนเว็บจริงสามารถสลับใช้โหมด AI ได้ทันทีโดยที่ API Key ไม่รั่วไหลสู่สาธารณะ
+### 2.3 Serverless Proxy & Seamless Fallback (`api/gemini.js`)
+* เชื่อมต่อ Gemini API ผ่าน Vercel Serverless Function เพื่อซ่อน `GEMINI_API_KEY` ไว้ในเซิร์ฟเวอร์ ผู้ใช้ทั่วไปเข้าเว็บแล้วกดใช้ AI ได้ทันที
+* หากไม่มี API Key หรือ AI ออฟไลน์ ระบบจะสลับไปใช้ **Smart Heuristic Rule Engine** ทันที เพื่อไม่ให้ประสบการณ์ผู้ใช้หยุดชะงัก
 
-### 2.4 Responsive Multi-View UI (`index.html`, `js/app.js`)
-* แบ่งหน้าจอการทำงานเป็น 4 หน้า (`ภาพรวม`, `ระบุยอดใหญ่`, `รายการทั้งหมด`, `บัญชีของฉัน & สมุดจำ`)
-* รองรับทุกอุปกรณ์: บน PC แสดงเป็นตารางมาตรฐาน และบน iPhone / มือถือ แปลงเป็นการ์ดรายการแนวตั้ง (`Mobile Cards`) พร้อม `Bottom Tab Bar` และบันทึกสถานะลงเครื่องอัตโนมัติ (`Session Persistence`)
+### 2.4 Mobile-First Responsive Dashboard (`index.html`, `js/app.js`)
+* รองรับทุกอุปกรณ์ทั้ง Desktop (ตารางข้อมูลละเอียด) และ iPhone/Mobile (การ์ดรายการแนวตั้ง + Bottom Tab Bar)
+* มีแถบ **สัดส่วนรายจ่ายภาพรวม (Stacked Distribution Bar)** และระบบ **Category Modal Drill-down** เพื่อเจาะดูรายการย่อยในแต่ละหมวดได้ทันที
+* **ปุ่มลองข้อมูลตัวอย่าง (Demo Data):** สำหรับให้กรรมการกดทดสอบระบบได้ทันทีใน 1 วินาที โดยไม่ต้องมีไฟล์ PDF จริง
 
 ---
 
-## 3. โครงสร้างไฟล์ (Project Structure)
+## 3. โครงสร้างโปรเจกต์ (Project Structure)
+
 ```text
 tang-hai/
-├── index.html          # โครงสร้างหน้าเว็บ 4 หน้าย่อย (Responsive Desktop & Mobile)
+├── index.html               # ส่วนติดต่อผู้ใช้หลัก 4 หน้า Responsive (Overview, Priority, Transactions, Accounts)
+├── vercel.json              # กำหนด Routing และ Serverless Handler สำหรับ Vercel
+├── package.json             # ประกาศ Module Type และ Metadata สำหรับ Vercel Node Runtime
 ├── api/
-│   └── gemini.js       # Vercel Serverless Function เชื่อมต่อ Gemini API
+│   └── gemini.js            # Vercel Serverless Proxy สำหรับเรียก Gemini Flash API พร้อม Model Fallback
 ├── js/
-│   ├── pdfParser.js    # ระบบปลดล็อกรหัส PDF และ Universal Multi-Bank Parser
-│   ├── categorizer.js  # อัลกอริทึมแยกหมวดหมู่, ตรวจจับบัญชีตัวเอง และแจกแจงช่วงเวลา
-│   ├── memoryStore.js  # ระบบสมุดช่วยจำชื่อร้านค้าและตัดรหัสอ้างอิงซ้ำ (Normalizer)
-│   ├── sampleData.js   # ข้อมูลหมวดหมู่มาตรฐาน, Custom Categories และข้อมูลตัวอย่างทดสอบ
-│   └── app.js          # ตัวควบคุม State, การรวมหลายสเตทเมนต์ และการส่งออก CSV
-└── README.md           # เอกสารอธิบายสถาปัตยกรรมโปรเจกต์
+│   ├── pdfParser.js         # ตัวปลดล็อกรหัสผ่าน PDF และ Universal Balance-Delta Parser
+│   ├── categorizer.js       # อัลกอริทึมจัดหมวดหมู่ 3 ชั้น, ตรวจจับโอนบัญชีตัวเอง และ Smart Heuristic Hints
+│   ├── memoryStore.js       # ระบบสมุดช่วยจำชื่อร้านค้า (Local Normalizer & Rule Persistence)
+│   ├── sampleData.js        # หมวดหมู่มาตรฐาน, ระบบสร้างหมวดหมู่ใหม่ (Custom Categories) และข้อมูล Demo
+│   ├── config.local.example.js # แม่แบบการตั้งค่า API Key สำหรับการรันแบบ Local
+│   └── app.js               # State Management, Multi-view Navigation, Event Listeners และ Export CSV
+└── README.md                # เอกสารประกอบโปรเจกต์และแนวทางสัมภาษณ์
 ```
 
+---
+
+## 4. ขั้นตอนการ Deploy ขึ้น Vercel (Deployment Guide)
+
+1. **Push โค้ดขึ้น GitHub Repository ของคุณ:**
+   ```bash
+   git add .
+   git commit -m "feat: ready for vercel deployment"
+   git push origin main
+   ```
+2. **สร้างโปรเจกต์บน Vercel:**
+   * เข้าสู่ระบบที่ [vercel.com](https://vercel.com)
+   * กด **`Add New...`** $\rightarrow$ **`Project`**
+   * เลือก Repository `tang-hai` แล้วกด **`Import`**
+3. **ตั้งค่า Environment Variable (สำหรับ Gemini AI):**
+   * ในหน้า Configure Project หัวข้อ **Environment Variables**:
+     * **Key:** `GEMINI_API_KEY`
+     * **Value:** ใส่ API Key ของคุณ (แนะนำให้ใช้คีย์จาก [Google AI Studio](https://aistudio.google.com/))
+   * กด **`Deploy`**
+4. **ทดสอบ Live URL:**
+   * เมื่อ Deploy เสร็จสิ้น จะได้ Live URL (เช่น `https://tang-hai.vercel.app`) สามารถเปิดทดสอบและส่งให้กรรมการได้ทันที
+
+---
+
+## 5. แนวทางการอธิบายโค้ดในวันสัมภาษณ์ (Talking Points)
+
+* **Q: ทำไมเลือกทำโปรเจกต์นี้?**
+  * *A:* มองจากปัญหาจริงที่คนรอบตัวและตัวเองเจอ คือสเตทเมนต์ธนาคารอ่านยาก ยอดเงินโอนไปมาระหว่างบัญชีตัวเองทำให้รายจ่ายบวม และคนไม่อยากอัปโหลดไฟล์ส่วนตัวขึ้นเว็บ จึงต้องการสร้าง Web App ที่ประมวลผลเร็ว ปลอดภัย และแก้ปัญหานี้ได้แบบ 100% Client-Side
+* **Q: ทำไมเลือก Vanilla JS และ PDF.js แทนที่จะใช้ Framework ใหญ่ๆ?**
+  * *A:* สเตทเมนต์มีขนาดไฟล์และความซับซ้อนของ Array การใช้ Vanilla JS ทำให้แอปพลิเคชันโหลดเร็วมาก ไม่มี Bundle Size ขนาดใหญ่ และควบคุม DOM รวมถึง Memory ของเบราว์เซอร์ได้ละเอียด โดยเฉพาะการทำงานร่วมกับ PDF.js
+* **Q: จัดการเรื่องความปลอดภัยของ API Key และข้อมูลผู้ใช้อย่างไร?**
+  * *A:* 
+    1. ข้อมูลสเตทเมนต์ประมวลผลใน Browser ของผู้ใช้เท่านั้น ไม่มีการส่งเนื้อหาไฟล์ขึ้นเซิร์ฟเวอร์
+    2. API Key ฝั่งการใช้งานจริง ถูกซ่อนไว้ใน Vercel Serverless Function Proxy (`/api/gemini`) ไม่เคยถูกเปิดเผยใน Client Code
+    3. ส่งเฉพาะชื่อร้านค้าที่ไม่คุ้นเคยไปถาม AI (ตัดยอดเงินและชื่อบุคคลส่วนตัวออก) เพื่อรักษาความปลอดภัยข้อมูลขั้นสูงสุด

@@ -266,15 +266,16 @@ window.TangHai.setAnalysisMode = async function(mode) {
       notify(res.cached ? 'สลับเป็นโหมด Gemini AI เรียบร้อย (ดึงจากหน่วยความจำ)' : 'Gemini 2.5 Flash วิเคราะห์สำเร็จ!');
     } catch (err) {
       AppState.isAiLoading = false;
+      AppState.analysisMode = 'BASIC';
+      localStorage.setItem('tanghai_analysis_mode', 'BASIC');
+      updateModeSwitcherUI();
+      runAnalysisAndRender();
+
       if (err.code === 'NEED_API_KEY') {
-        AppState.analysisMode = 'BASIC';
-        localStorage.setItem('tanghai_analysis_mode', 'BASIC');
-        updateModeSwitcherUI();
         document.getElementById('apikey-modal')?.classList.remove('hidden');
         setTimeout(() => document.getElementById('gemini-apikey-input')?.focus(), 50);
         return;
       }
-      runAnalysisAndRender();
       notify(`หมายเหตุ: ${err.message}`);
     }
   } else {
@@ -394,7 +395,23 @@ function renderCategoryBreakdown() {
 
   const sorted = Object.entries(map).sort((a, b) => b[1].amount - a[1].amount);
 
-  container.innerHTML = sorted.map(([catKey, data]) => {
+  const stackedSegments = sorted.map(([catKey, data]) => {
+    const cat = window.TangHai.CATEGORIES[catKey] || window.TangHai.CATEGORIES.UNKNOWN;
+    const pct = ((data.amount / totalExpense) * 100);
+    if (pct < 0.5) return '';
+    return `<div class="h-full transition-all hover:opacity-80 cursor-pointer" style="width: ${pct}%; background-color: ${cat.color}" title="${cat.label}: ${pct.toFixed(1)}% (฿${formatNumber(data.amount)})" onclick="event.stopPropagation(); window.TangHai.openCategoryModal('${catKey}')"></div>`;
+  }).join('');
+
+  const stackedBarHtml = sorted.length > 0 ? `
+    <div class="space-y-1.5 pb-2">
+      <div class="text-[11px] font-medium text-zinc-400">สัดส่วนรายจ่ายภาพรวม:</div>
+      <div class="w-full h-2.5 bg-zinc-100 rounded-full overflow-hidden flex shadow-inner">
+        ${stackedSegments}
+      </div>
+    </div>
+  ` : '';
+
+  container.innerHTML = stackedBarHtml + sorted.map(([catKey, data]) => {
     const cat = window.TangHai.CATEGORIES[catKey] || window.TangHai.CATEGORIES.UNKNOWN;
     const pct = ((data.amount / totalExpense) * 100).toFixed(1);
     return `
@@ -667,6 +684,14 @@ function renderPriorityQueue() {
           <span>เวลา ${g.time}</span>
           ${g.channel ? `<span>ช่องทาง ${g.channel}</span>` : ''}
         </div>
+        ${g.hint ? `
+          <div class="pt-1">
+            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-indigo-50 border border-indigo-100/80 text-[11px] text-indigo-900 font-medium">
+              <span class="text-indigo-600">✨ คำใบ้:</span>
+              <span>${g.hint}</span>
+            </span>
+          </div>
+        ` : ''}
       </div>
 
       <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 shrink-0">

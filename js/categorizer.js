@@ -11,35 +11,65 @@ const MERCHANT_AI_RULES = [
       'MINOR FOOD', 'ไมเนอร์ ฟู้ด', 'อีสาน', 'แซ่บ', 'ข้าวยาย', 'ไส้กรอก',
       'ร้านเบอร์ 5', 'ร้านเบอร์สอง', 'ตึกจุล', 'ข้าวแกง', 'ป้ารี',
       'YI JIA MALA', 'MALA SUKI', '1592-KFC', 'KFC', 'WONGNAI',
-      'อาหาร', 'กาแฟ', 'ชาบู', 'MK ', 'STARBUCKS', 'CAFE', 'FOOD', 'PIZZA'
+      'อาหาร', 'กาแฟ', 'ชาบู', 'MK ', 'STARBUCKS', 'CAFE', 'FOOD', 'PIZZA',
+      'GRABFOOD', 'LINEMAN', 'FOODPANDA', 'ROBINHOOD', 'MCDONALD', 'TEXAS CHICKEN',
+      'SUSHI', 'SHABUSHI', 'BAR B Q', 'BARBQ', 'BAR B Q PLAZA', 'SWENSENS',
+      'AMAZON', 'INTHANIN', 'CHA TRA MUE', 'ชาตรามือ', 'KOI THE', 'KAMU',
+      'BEARHOUSE', 'GAGA', 'HAIDILAO', 'MO-MO', 'S&P', 'CHESTER', 'KOUEN',
+      'BONCHON', 'BURGER KING', 'YAYOI', 'FUJI', 'OISHI', 'SUSHIRO', 'SUKI TEENOI', 'สุกี้ตี๋น้อย'
     ],
     category: 'FOOD'
   },
   {
     keywords: [
       'สหกรณ์จุฬา', 'TOPS-C2B', 'TOPS', 'BIGC', 'BIG C',
-      'เวนดิ้ง', 'บุญเติม', 'จิฟฟี่', 'JIFFY', '7-ELEVEN', 'CP ALL', 'LAWSON'
+      'เวนดิ้ง', 'บุญเติม', 'จิฟฟี่', 'JIFFY', '7-ELEVEN', 'CP ALL', 'LAWSON',
+      'LOTUS', "LOTUS'S", 'โลตัส', 'CJ EXPRESS', 'CJ MORE', 'MAKRO', 'แม็คโคร',
+      'VILLA MARKET', 'GOURMET MARKET', 'FOODLAND', 'FAMILYMART', 'MINI BIG C',
+      'DONKI', 'DON DON DONKI', 'MAXVALU'
     ],
     category: 'GROCERY'
   },
   {
-    keywords: ['เอ็มอาร์ที', 'MRT', 'ทางด่วนและรถไฟฟ้า', 'BTS', 'BEM'],
+    keywords: [
+      'เอ็มอาร์ที', 'MRT', 'ทางด่วนและรถไฟฟ้า', 'BTS', 'BEM',
+      'ARL', 'SRTET', 'รถไฟฟ้า', 'ทางด่วน', 'EXAT', 'EASY PASS', 'M-FLOW', 'TOLLWAY',
+      'GRABTAXI', 'BOLT', 'PTT', 'OR OIL', 'CALTEX', 'SHELL', 'BANGCHAK', 'บางจาก',
+      'SUSCO', 'PEA VOLTA', 'EV CHARGE', 'LINE MAN RIDE'
+    ],
     category: 'TRANSPORT'
   },
   {
-    keywords: ['CHULALONGKORN UNIVERSITY BOOK', 'BOOK CE', 'MAKALIN CLINIC', 'CLINIC', 'HOSPITAL', 'PHARMACY'],
+    keywords: [
+      'CHULALONGKORN UNIVERSITY BOOK', 'BOOK CE', 'MAKALIN CLINIC', 'CLINIC', 'HOSPITAL',
+      'PHARMACY', 'SE-ED', 'NAIIN', 'B2S', 'KINOKUNIYA', 'จุฬา', 'ธรรมศาสตร์', 'มหาวิทยาลัย',
+      'โรงพยาบาล', 'คลินิก', 'ศิริราช', 'จุฬาลงกรณ์', 'กรุงเทพ', 'รามา', 'BDMS', 'ร้านยา', 'ฟาสซิโน',
+      'WATSONS', 'BOOTS'
+    ],
     category: 'EDUCATION_HEALTH'
   },
   {
-    keywords: ['TIKTOK SHOP', 'OMISE', 'SHOPEE', 'LAZADA', 'ยูนิโคล่', 'UNIQLO', 'ยูอาร์เดอะ', 'PINEHURST', 'LIANLIAN', 'อัลติเมต'],
+    keywords: [
+      'TIKTOK SHOP', 'OMISE', 'SHOPEE', 'LAZADA', 'ยูนิโคล่', 'UNIQLO', 'ยูอาร์เดอะ',
+      'PINEHURST', 'LIANLIAN', 'อัลติเมต', 'ZARA', 'H&M', 'MUJI', 'DECATHLON',
+      'MR.DIY', 'MR DIY', 'HOMEPRO', 'CENTRAL', 'THE MALL', 'EVEANDBOY', 'BEAUTRIUM',
+      'IKEA', 'APPLE.COM', 'STEAM', 'PLAYSTATION'
+    ],
     category: 'SHOPPING'
   },
   {
-    keywords: ['METROPOLITAN ELECTRICITY', 'การไฟฟ้า', 'PEA', 'MEA', 'ประปา', 'AIS POSTPAID', 'AIS FIBRE', 'TRUE MOVE', 'DTAC', 'NETFLIX'],
+    keywords: [
+      'METROPOLITAN ELECTRICITY', 'การไฟฟ้า', 'PEA', 'MEA', 'ประปา', 'MWA', 'PWA',
+      'AIS POSTPAID', 'AIS FIBRE', 'TRUE MOVE', 'TRUE ONLINE', 'DTAC', '3BB',
+      'NT BROADBAND', 'NETFLIX', 'SPOTIFY', 'YOUTUBE', 'GOOGLE STORAGE', 'ICLOUD'
+    ],
     category: 'BILLS'
   },
   {
-    keywords: ['SIPS TRUE MONEY', 'TRUE MONEY', 'K PLUS W', 'LINE PAY', 'WIDx', 'เติมเงิน'],
+    keywords: [
+      'SIPS TRUE MONEY', 'TRUE MONEY', 'K PLUS W', 'LINE PAY', 'WIDx', 'เติมเงิน',
+      'SHOPEEPAY', 'DOLFIN'
+    ],
     category: 'WALLET'
   }
 ];
@@ -359,29 +389,61 @@ window.TangHai.Categorizer = {
 {"items":[{"key":"...","category":"...","hint":"..."}],"summaryBullets":["...","...","..."]}`;
 
       const isVertexKey = apiKey.startsWith('AQ.');
-      const url = isVertexKey
-        ? `https://aiplatform.googleapis.com/v1/publishers/google/models/gemini-2.0-flash:generateContent?key=${encodeURIComponent(apiKey)}`
-        : `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(apiKey)}`;
+      const candidateModels = isVertexKey
+        ? ['gemini-2.0-flash']
+        : ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash'];
 
-      const payload = {
-        contents: [{ role: 'user', parts: [{ text: promptText }] }],
-        generationConfig: isVertexKey
-          ? { responseMimeType: 'application/json', temperature: 0.2 }
-          : { responseMimeType: 'application/json', thinkingConfig: { thinkingBudget: 0 } }
-      };
+      let lastError = null;
 
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
+      for (const model of candidateModels) {
+        try {
+          const url = isVertexKey
+            ? `https://aiplatform.googleapis.com/v1/publishers/google/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`
+            : `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`;
 
-      if (!response.ok) {
-        throw new Error(`Gemini API Error (${response.status})`);
+          const payload = {
+            contents: [{ role: 'user', parts: [{ text: promptText }] }],
+            generationConfig: {
+              responseMimeType: 'application/json',
+              temperature: 0.2
+            }
+          };
+
+          const response = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+
+          if (!response.ok) {
+            if (response.status === 403) {
+              if (isVertexKey) {
+                throw new Error('API Key บน Google Cloud (Vertex AI) ยังไม่ได้เปิดใช้งาน Service aiplatform.googleapis.com แนะนำให้ใช้ Google AI Studio Key แทน');
+              } else {
+                throw new Error('Gemini API Error (403): สิทธิ์การเข้าถึงถูกปฏิเสธ หรือยังไม่ได้เปิด Generative Language API');
+              }
+            }
+            if (response.status === 404 || response.status === 400) {
+              lastError = new Error(`Gemini API Error (${response.status})`);
+              continue;
+            }
+            throw new Error(`Gemini API Error (${response.status})`);
+          }
+
+          const data = await response.json();
+          parsed = JSON.parse(data?.candidates?.[0]?.content?.parts?.[0]?.text || '{}');
+          break;
+        } catch (e) {
+          lastError = e;
+          if (e.message.includes('403') || e.message.includes('Vertex AI')) {
+            throw e;
+          }
+        }
       }
 
-      const data = await response.json();
-      parsed = JSON.parse(data?.candidates?.[0]?.content?.parts?.[0]?.text || '{}');
+      if (!parsed) {
+        throw (lastError || new Error('ไม่สามารถเชื่อมต่อ Gemini API ได้'));
+      }
     }
 
     if (Array.isArray(parsed?.items)) {
@@ -403,8 +465,45 @@ window.TangHai.Categorizer = {
   },
 
   /**
+   * สร้างคำใบ้อัจฉริยะ (Smart Heuristic Hint) อิงตามยอดเงิน, วันที่ และเวลา
+   * ทำงานได้ตลอดเวลาทั้งในโหมดพื้นฐาน และเป็น Fallback เมื่อ AI ออฟไลน์
+   */
+  generateSmartHint(tx) {
+    const amt = tx.debit || tx.amount || 0;
+    const day = parseInt((tx.date || '01/10/26').split('/')[0], 10);
+    const hour = parseInt((tx.time || '12:00').split(':')[0], 10);
+    const desc = (tx.description || '').toUpperCase();
+
+    if (amt >= 3000 && day <= 7) {
+      return 'ค่าเช่าหอพัก / คอนโด / บิลรายเดือน (ต้นเดือน)';
+    }
+    if (desc.includes('PROMPTPAY') || desc.includes('นาย') || desc.includes('น.ส.') || desc.includes('นาง')) {
+      if (amt <= 80 && hour >= 6 && hour <= 21) {
+        return 'โอนจ่ายค่าอาหารจานด่วน / วินมอเตอร์ไซค์';
+      }
+      if (amt >= 100 && amt <= 600) {
+        return 'โอนหารค่าอาหารกับเพื่อน / จ่ายร้านค้าคนละครึ่ง';
+      }
+      if (amt >= 1000) {
+        return 'โอนค่าของชิ้นใหญ่ / โอนคืนเพื่อน';
+      }
+      return 'โอนบุคคลผ่าน PromptPay';
+    }
+    if (hour >= 0 && hour < 6) {
+      return 'สั่งอาหารดึก / ซื้อของออนไลน์ช่วงดึก';
+    }
+    if (amt <= 80 && ((hour >= 7 && hour <= 9) || (hour >= 11 && hour <= 14) || (hour >= 17 && hour <= 20))) {
+      return 'อาหารและเครื่องดื่มช่วงมื้ออาหาร';
+    }
+    if (amt >= 2000) {
+      return 'ค่าใช้จ่ายก้อนใหญ่ / ช้อปปิ้ง';
+    }
+    return 'รายการรอเจ้าของระบุหมวดหมู่';
+  },
+
+  /**
    * ดึงรายการที่ยังไม่ระบุหมวดหมู่ (UNKNOWN) ทั้งหมด เรียงลำดับจาก "ยอดเงินมากสุด -> น้อยสุด"
-   * เพื่อให้จำนวนรายการตรงกับตัวเลขที่แสดงบนป้ายแจ้งเตือน 100% (ไม่ยุบซ่อนจนผู้ใช้สับสน)
+   * พร้อมแนบคำใบ้ (Hint) จาก Gemini AI หรือ Smart Heuristic
    */
   buildPriorityUnknownGroups(transactions) {
     const unknownTxs = transactions.filter(tx => tx.category === 'UNKNOWN' && tx.debit > 0);
@@ -427,7 +526,8 @@ window.TangHai.Categorizer = {
           time: tx.time,
           channel: tx.channel || '',
           sourceBank: tx.sourceBank || '',
-          repeatCount: freqMap[key] || 1
+          repeatCount: freqMap[key] || 1,
+          hint: tx.llmHint || this.generateSmartHint(tx)
         };
       })
       .sort((a, b) => b.amount - a.amount);
