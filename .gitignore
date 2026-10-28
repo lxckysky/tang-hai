@@ -8,3 +8,5 @@ _parsed_dump.json
 .DS_Store
 node_modules/
 
+prev_version/
+_prev_versions/

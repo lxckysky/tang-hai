@@ -94,26 +94,16 @@ function isLikelyPersonalTransfer(desc = '') {
 }
 
 function inferContextCategory(tx = {}) {
-  const amt = tx.debit || tx.amount || 0;
-  const time = tx.time || '';
   const desc = (tx.description || '').toUpperCase();
-  const hour = parseInt(time.split(':')[0], 10);
 
-  // 1. ค่าเช่าหอพัก / ที่พัก / คอนโด / ค่าบริการส่วนกลาง
-  if (amt >= 2000 && (desc.includes('เรสซิเดนซ์') || desc.includes('RESIDENCE') || desc.includes('หอพัก') || desc.includes('คอนโด') || desc.includes('อพาร์ตเมนต์') || desc.includes('ค่าเช่า') || desc.includes('ส่วนกลาง') || desc.includes('บจก.'))) {
-    return { category: 'BILLS', label: 'ค่าเช่าห้อง / ค่าหอพัก', hint: 'ค่าเช่าห้อง / ที่พักรายเดือน' };
+  // 1. ตรวจจากชื่อช่องทาง/description ที่ชัดเจน เท่านั้น — ไม่เดาจากยอดเงิน/เวลา
+  if (tx.channel === 'CDM' || desc.includes('CARDLESS ATM')) {
+    return { category: 'CASH_ATM', label: 'กดเงินสด ATM', hint: 'กดเงินสด ATM / Cardless' };
   }
 
-  // 2. มื้ออาหารยอดนิยม (ยอดไม่เกิน 220 บาท ในช่วงเวลามื้ออาหาร เช้า/เที่ยง/เย็น)
-  if (amt > 0 && amt <= 220 && !isNaN(hour)) {
-    if ((hour >= 7 && hour <= 9) || (hour >= 11 && hour <= 14) || (hour >= 17 && hour <= 21)) {
-      return { category: 'FOOD', label: 'อาหารช่วงมื้อ', hint: `ค่าอาหารช่วงเวลา ${time}` };
-    }
-  }
-
-  // 3. ค่าเดินทาง / วิน / รถไฟฟ้า
-  if (desc.includes('วิน') || desc.includes('แท็กซี่') || desc.includes('TAXI') || desc.includes('GRAB') || desc.includes('BOLT')) {
-    return { category: 'TRANSPORT', label: 'การเดินทาง', hint: 'ค่าโดยสาร / การเดินทาง' };
+  // 2. ค่าเดินทาง — ตรวจจากชื่อบริการที่ชัดเจนใน description
+  if (desc.includes('GRABTAXI') || desc.includes('BOLT RIDE') || desc.includes('LINE MAN RIDE')) {
+    return { category: 'TRANSPORT', label: 'การเดินทาง', hint: 'ค่าโดยสาร Grab/Bolt' };
   }
 
   return null;
@@ -133,10 +123,7 @@ function extractOwnerCoreNames(meta = {}) {
         tokens.add(parts[0]); // First name เช่น ทอฝัน, ศาศวรรต
       }
       if (parts[1] && parts[1].length >= 3) {
-        tokens.add(parts[1]); // Full last name
-        if (parts[1].length >= 5) {
-          tokens.add(parts[1].substring(0, 5)); // สุทธิ, จิตรส
-        }
+        tokens.add(parts[1]); // Full last name เช่น จิตรสอาด
       }
     }
   };
@@ -172,7 +159,7 @@ function isMatchingOwnerName(desc = '', ownerData = {}) {
   return tokens.some(t => t.length >= 3 && desc.includes(t));
 }
 
-const AI_CACHE_KEY = 'tanghai_gemini_cache_v1';
+const AI_CACHE_KEY = 'tanghai_gemini_cache_v2';
 const API_KEY_STORAGE = 'tanghai_gemini_api_key';
 
 function getStoredApiKey() {
@@ -241,12 +228,14 @@ window.TangHai.Categorizer = {
 
       if (tx.code === 'X1' || tx.credit > 0) {
         ruleHits++;
+        // เงินเข้า → INCOME เสมอ ไม่ว่าชื่อจะตรงกับเจ้าของบัญชีหรือเปล่า
+        // (ไม่ใช้ชื่อมาตัดสินใจ เพราะชื่อในรายการเงินเข้าอาจซ้อนกับชื่ออื่นได้)
         return {
           ...tx,
           normKey,
           category: 'INCOME',
           source: 'RULE',
-          sourceLabel: isSelf ? 'โอนเข้าจากบัญชีตัวเอง' : 'เงินโอนเข้า',
+          sourceLabel: 'เงินโอนเข้า',
           needsReview: false
         };
       }
@@ -509,27 +498,22 @@ window.TangHai.Categorizer = {
       ];
 
       const promptText = `คุณคือผู้เชี่ยวชาญวิเคราะห์สเตทเมนต์ธนาคารไทย และระบบผู้ช่วยจัดหมวดหมู่การเงินส่วนบุคคลอัตโนมัติ
-งานที่ 1: วิเคราะห์รายการโอนเงินต่อไปนี้ แล้วเลือก category ที่ถูกต้องที่สุดจาก: [${availableCats.join(', ')}]
-เกณฑ์การตัดสินใจอย่างแม่นยำ (สำคัญมาก):
-1. ดูชื่อผู้รับ (key), ยอดเงิน (amount) และเวลา (time) ประกอบกัน:
-   - รายการที่เป็นชื่อร้านค้า, ตลาด, ข้าว, กาแฟ, ชา, ขนม หรือยอดโอน 25 - 200 บาท ในช่วงเวลามื้ออาหาร (07:00-09:30, 11:30-14:00, 17:30-21:30) แม้จะเป็นการโอน PromptPay ให้จัดเป็น "FOOD" (อาหารและเครื่องดื่ม)
-   - ยอดโอนค่าที่พัก, ค่าหอพัก, อพาร์ตเมนต์, คอนโด, หรือค่าบิลรายเดือน (ปกติ 2,500 - 15,000 บาท ช่วงต้นเดือน/สิ้นเดือน หรือมีคำว่า เดอะเรสซิเดนซ์, หอพัก, คอนโด) ให้จัดเป็น "BILLS"
-   - ยอดโอนค่าเดินทาง, รถไฟฟ้า, แท็กซี่, วินมอเตอร์ไซค์, น้ำมัน ให้จัดเป็น "TRANSPORT"
-   - ยอดซื้อสินค้า, ช้อปปิ้ง, เสื้อผ้า, สั่งของออนไลน์ ให้จัดเป็น "SHOPPING"
-   - ยอดค่าหนังสือ, ค่ายา, โรงพยาบาล, คลินิก ให้จัดเป็น "EDUCATION_HEALTH"
-2. กรณีโอนเงินให้บุคคล (PromptPay หรือชื่อบุคคล):
-   - ถ้าดูจากยอดเงินและเวลาแล้วเข้าข่ายค่าอาหาร ให้ระบุเป็น "FOOD" พร้อม hint สั้นๆ เช่น "ค่าอาหาร/สแกนจ่ายร้านค้า"
-   - ถ้าเป็นการโอนให้เพื่อน/บุคคลทั่วไปที่ไม่มีบริบทของค่าอาหาร/สินค้า/บริการ (เช่น โอนเลขกลมๆ คืนเงิน) จึงจัดเป็น "TRANSFER_PERSON" (โอนให้บุคคล)
-3. รายการที่ไม่สามารถระบุได้จริงๆ ให้ใส่ "UNKNOWN" (อื่นๆ)
+งานที่ 1: วิเคราะห์รายการโอนเงินต่อไปนี้ แล้วเลือก category ที่ตรงกับข้อเท็จจริงที่สุดจาก: [${availableCats.join(', ')}]
+เกณฑ์การตัดสินใจ (ห้ามเดาสุ่ม อิงจากข้อเท็จจริงในชื่อรายการเท่านั้น):
+1. วิเคราะห์จากชื่อร้านค้า/ผู้รับ (key):
+   - ถ้ามีชื่อร้านค้า, บริการ, บริษัท, แบรนด์ หรือคีย์เวิร์ดชัดเจน ให้จัดหมวดตามประเภทธุรกิจจริง (เช่น GRAB, 7-11, BTS, UNIQLO, NETFLIX, โรงพยาบาล)
+   - ถ้าชื่อมีคำว่า หอพัก, คอนโด, เรสซิเดนซ์, การไฟฟ้า, ประปา, ค่าเน็ต ให้จัดเป็น "BILLS"
+2. กรณีโอนเงินให้บุคคล (ชื่อ-นามสกุล บุคคลธรรมดา หรือ PromptPay):
+   - ห้ามเดาเอาเองว่าเป็นค่าอาหารหรือค่าหอจากเวลาและยอดเงินเด็ดขาด เพราะไม่มีทางรู้ว่าโอนให้บุคคลนั้นด้วยเหตุผลใด
+   - รายการที่เป็นชื่อบุคคลธรรมดา ให้จัดเป็น "TRANSFER_PERSON" (โอนให้บุคคล) เสมอ ยกเว้นชื่อนั้นจะมีคำระบุชัดเจนว่าเป็นร้านค้า
+3. ถ้ารายการใดไม่สามารถระบุได้จริงๆ จากชื่อ ให้ใส่ "UNKNOWN" (อื่นๆ) เพื่อให้ผู้ใช้ระบุเอง
+
 รายการ: ${JSON.stringify(itemsToAsk.slice(0, 40))}
 
-งานที่ 2: วิเคราะห์พฤติกรรมการใช้จ่ายเฉพาะบุคคล (Personalized Spending Choices):
-แนะนำหมวดหมู่ใหม่ที่ตรงใจ 1-2 หมวดหมู่ใน "suggestedCustomCategories": [{"label": "ชื่อหมวดหมู่ที่แนะนำ", "reason": "เหตุผลสั้นๆ"}]
-
-งานที่ 3: สรุปภาพรวมพฤติกรรมการเงิน 3 ข้อ (summaryBullets)
+งานที่ 2: สรุปภาพรวมพฤติกรรมการเงิน 3 ข้อ (summaryBullets) จากข้อมูลที่มีจริง (ห้ามกุเรื่อง)
 
 ตอบกลับเป็น JSON เท่านั้น:
-{"items":[{"key":"...","category":"...","hint":"..."}],"suggestedCustomCategories":[{"label":"...","reason":"..."}],"summaryBullets":["...","...","..."]}`;
+{"items":[{"key":"...","category":"...","hint":"..."}],"summaryBullets":["...","...","..."]}`;
 
       const isVertexKey = apiKey.startsWith('AQ.');
       const candidateModels = isVertexKey
@@ -615,36 +599,33 @@ window.TangHai.Categorizer = {
    * ทำงานได้ตลอดเวลาทั้งในโหมดพื้นฐาน และเป็น Fallback เมื่อ AI ออฟไลน์
    */
   generateSmartHint(tx) {
+    // คำใบ้มีไว้ช่วย UX เท่านั้น — ไม่ใช้ heuristic เดาสุ่มจากยอดเงิน/วันที่
+    // แสดงเฉพาะข้อมูลที่อ่านได้จาก transaction จริงๆ
     const amt = tx.debit || tx.amount || 0;
-    const day = parseInt((tx.date || '01/10/26').split('/')[0], 10);
     const hour = parseInt((tx.time || '12:00').split(':')[0], 10);
     const desc = (tx.description || '').toUpperCase();
 
-    if (amt >= 3000 && day <= 7) {
-      return 'ค่าเช่าหอพัก / คอนโด / บิลรายเดือน (ต้นเดือน)';
+    // ช่องทางที่ชัดเจน
+    if (tx.channel === 'CDM') return 'กดเงินสด ATM';
+    if (desc.includes('CARDLESS ATM')) return 'กดเงินสด Cardless ATM';
+
+    // ชื่อร้านค้าที่รู้จักชัดเจนจาก description
+    if (desc.includes('GRABFOOD') || desc.includes('LINEMAN') || desc.includes('FOODPANDA')) return 'สั่งอาหาร Delivery';
+    if (desc.includes('GRABTAXI') || desc.includes('BOLT')) return 'เรียกรถโดยสาร';
+    if (desc.includes('BTS') || desc.includes('MRT') || desc.includes('ARL')) return 'ค่าโดยสารรถไฟฟ้า';
+    if (desc.includes('NETFLIX') || desc.includes('SPOTIFY') || desc.includes('YOUTUBE')) return 'ค่าบริการ Subscription';
+    if (desc.includes('SHOPEE') || desc.includes('LAZADA') || desc.includes('TIKTOK SHOP')) return 'ซื้อสินค้าออนไลน์';
+    if (desc.includes('TRUE MONEY') || desc.includes('SHOPEEPAY') || desc.includes('MPTPAY')) return 'เติมเงิน e-Wallet';
+
+    // โอนให้บุคคล — บอกแค่ว่าคือการโอนบุคคล ไม่เดาว่าซื้ออะไร
+    if (desc.includes('PROMPTPAY') || /นาย|น\.ส\.|นาง/.test(tx.description || '')) {
+      return 'โอนผ่าน PromptPay / บุคคล';
     }
-    if (desc.includes('PROMPTPAY') || desc.includes('นาย') || desc.includes('น.ส.') || desc.includes('นาง')) {
-      if (amt <= 80 && hour >= 6 && hour <= 21) {
-        return 'โอนจ่ายค่าอาหารจานด่วน / วินมอเตอร์ไซค์';
-      }
-      if (amt >= 100 && amt <= 600) {
-        return 'โอนหารค่าอาหารกับเพื่อน / จ่ายร้านค้าคนละครึ่ง';
-      }
-      if (amt >= 1000) {
-        return 'โอนค่าของชิ้นใหญ่ / โอนคืนเพื่อน';
-      }
-      return 'โอนบุคคลผ่าน PromptPay';
-    }
-    if (hour >= 0 && hour < 6) {
-      return 'สั่งอาหารดึก / ซื้อของออนไลน์ช่วงดึก';
-    }
-    if (amt <= 80 && ((hour >= 7 && hour <= 9) || (hour >= 11 && hour <= 14) || (hour >= 17 && hour <= 20))) {
-      return 'อาหารและเครื่องดื่มช่วงมื้ออาหาร';
-    }
-    if (amt >= 2000) {
-      return 'ค่าใช้จ่ายก้อนใหญ่ / ช้อปปิ้ง';
-    }
-    return 'รายการรอเจ้าของระบุหมวดหมู่';
+
+    // ช่วงดึก — บอกข้อเท็จจริงเรื่องเวลา ไม่เดาประเภท
+    if (!isNaN(hour) && hour >= 0 && hour < 5) return 'รายการช่วงดึก (00:00–04:59)';
+
+    return '';
   },
 
   /**
@@ -723,17 +704,47 @@ window.TangHai.Categorizer = {
       ? ownerData
       : (ownerData.namesArray || ownerData.fullNames || []);
 
+    /**
+     * ตรวจว่า description นี้มีรูปแบบเหมือน "โอนระหว่างบัญชีธนาคาร" จริงๆ
+     * เช่น "SCB X3967", "KBNK X5550", "MPTPAY X7281", "โอนจาก/ไปยัง"
+     * — ป้องกันไม่ให้ชื่อร้านค้าที่ "บังเอิญ" มีชื่อเจ้าของบัญชีรวมเข้ามา
+     */
+    function looksLikeBankTransfer(desc) {
+      // รูปแบบธนาคาร/wallet มาตรฐาน: ตัวอักษร 2-7 ตัวตามด้วย x/X แล้วตามด้วยตัวเลข 3-6 ตัว
+      if (/[A-Z]{2,7}\s*[Xx]\d{3,6}/i.test(desc)) return true;
+      // คำที่บ่งบอกว่าเป็นการโอนระหว่างบัญชีตัวเอง
+      if (/โอนจาก|โอนไป|บัญชีตัวเอง|PromptPay|พร้อมเพย์/i.test(desc)) return true;
+      // ชื่อธนาคารที่รู้จักชัดเจน
+      if (/^(SCB|KTB|KBNK|BBL|BAY|TTB|GSB|BAAC|UOB|CITI|LHBANK|TMB|TCRB|MPTPAY|TRUEMONEY)\s/i.test(desc)) return true;
+      return false;
+    }
+
     for (const tx of transactions) {
       const desc = tx.description || '';
-      const isSelfByName = isMatchingOwnerName(desc, ownerData);
       const isSelfCategory = tx.category === 'SELF_TRANSFER';
 
-      if (!isSelfByName && !isSelfCategory) continue;
+      // เงื่อนไขหลัก: รับเฉพาะรายการที่ถูก categorize เป็น SELF_TRANSFER โดยระบบ
+      // หรือรายการที่มีชื่อเจ้าของบัญชี AND มีรูปแบบ bank transfer จริงๆ (ป้องกัน false positive จากร้านค้า)
+      const isSelfByName = isMatchingOwnerName(desc, ownerData);
+      const qualifiesAsSelfAccount = isSelfCategory || (isSelfByName && looksLikeBankTransfer(desc));
 
-      const bankMatch = desc.match(/([A-Z]{2,6}\s*x\d{4})/i);
-      const acctKey = bankMatch
-        ? `${bankMatch[1].toUpperCase()} (${namesArr[0] || 'บัญชีตัวเอง'})`
-        : window.TangHai.MemoryStore.normalizeKey(desc);
+      if (!qualifiesAsSelfAccount) continue;
+
+      // สร้าง key สำหรับกลุ่ม account: ใช้ bank code + เลขท้าย เป็นหลัก
+      const bankMatch = desc.match(/([A-Z]{2,7}\s*[Xx]\d{3,6})/i);
+      let acctKey;
+      if (bankMatch) {
+        // normalize: "KBNK X5550" → "KBNK X5550 (ชื่อเจ้าของ)"
+        acctKey = `${bankMatch[1].replace(/\s+/g, ' ').toUpperCase()} (${namesArr[0] || 'บัญชีตัวเอง'})`;
+      } else if (isSelfCategory) {
+        // SELF_TRANSFER ที่ไม่มี bank code → ใช้ normalized description
+        const normDesc = window.TangHai.MemoryStore.normalizeKey(desc);
+        // ถ้า key ยาวกว่า 30 ตัวอักษร ตัดให้สั้นลง
+        acctKey = normDesc.length > 30 ? normDesc.substring(0, 30) + '...' : normDesc;
+      } else {
+        // กรณีอื่นๆ ที่ผ่านเงื่อนไข (ไม่ควรถึงตรงนี้บ่อย) — ข้ามไป
+        continue;
+      }
 
       if (!map[acctKey]) {
         map[acctKey] = {
@@ -756,82 +767,5 @@ window.TangHai.Categorizer = {
     }
 
     return Object.values(map).sort((a, b) => (b.inflow + b.outflow) - (a.inflow + a.outflow));
-  },
-
-  detectSplitsAndPassThroughs(txs, ownerCoreName = '') {
-    const detectedEvents = [];
-    const passThroughTxIds = [];
-    const splitNoteById = {};
-
-    const byDate = {};
-    for (const tx of txs) {
-      if (!byDate[tx.date]) byDate[tx.date] = [];
-      byDate[tx.date].push(tx);
-    }
-
-    for (const [date, dayTxs] of Object.entries(byDate)) {
-      const credits = dayTxs.filter(t => t.credit > 0);
-      const debits = dayTxs.filter(t => t.debit > 0);
-
-      for (const d of debits) {
-        if (d.debit >= 1000) {
-          const matchingIn = credits.find(c => Math.abs(c.credit - d.debit) < 0.01);
-          if (matchingIn && !(ownerCoreName && d.description.includes(ownerCoreName))) {
-            const fromSelf = ownerCoreName && matchingIn.description.includes(ownerCoreName);
-            splitNoteById[d.id] = fromSelf
-              ? `ดึงเงินจากบัญชีรองตัวเอง (+${d.debit.toLocaleString()}) มาจ่ายรายการนี้ (เช่น ค่าคอนโด/ค่าที่พักรายเดือน)`
-              : `ยอดตรงกับเงินโอนเข้า +${d.debit.toLocaleString()} ในวันเดียวกัน`;
-            detectedEvents.push({
-              date,
-              type: 'PASS_THROUGH',
-              title: fromSelf
-                ? `ดึงเงินจากบัญชีรองมาจ่ายก้อนใหญ่ ฿${d.debit.toLocaleString()}`
-                : `เงินผ่านบัญชี ฿${d.debit.toLocaleString()}`,
-              detail: `วันที่ ${date} โอนเข้า +${d.debit.toLocaleString()} (${matchingIn.description}) แล้วโอนออก -${d.debit.toLocaleString()} ไปยัง "${d.description}"`
-            });
-          }
-        }
-      }
-
-      for (const d of debits) {
-        if (d.debit > 0 && d.debit < 1000) {
-          const reimburse = credits.find(c => Math.abs(c.credit - d.debit) < 0.01);
-          if (reimburse) {
-            splitNoteById[d.id] = `มีเงินโอนคืนยอดตรงกัน +${d.debit} บาท (${reimburse.description})`;
-            detectedEvents.push({
-              date,
-              type: 'REIMBURSE',
-              title: `เงินโอนคืนค่าใช้จ่าย ฿${d.debit.toLocaleString()}`,
-              detail: `วันที่ ${date} จ่าย "${d.description}" (-${d.debit}) และมีรายการโอนคืน +${reimburse.credit} ในวันเดียวกัน`
-            });
-          }
-        }
-      }
-
-      if (credits.length >= 2) {
-        const creditFreq = {};
-        for (const c of credits) {
-          creditFreq[c.credit] = (creditFreq[c.credit] || 0) + 1;
-        }
-        for (const [amtStr, count] of Object.entries(creditFreq)) {
-          const shareAmt = parseFloat(amtStr);
-          if (count >= 2 && shareAmt > 20) {
-            const totalPool = shareAmt * (count + 1);
-            const groupDebit = debits.find(d => Math.abs(d.debit - totalPool) < 0.01);
-            if (groupDebit) {
-              splitNoteById[groupDebit.id] = `หารกลุ่ม ${count + 1} คน (เพื่อนโอนเข้า ${count}×${shareAmt} = +${shareAmt * count} บาท, จ่ายจริงเฉพาะของคุณ ${shareAmt} บาท)`;
-              detectedEvents.push({
-                date,
-                type: 'GROUP_SPLIT',
-                title: `หารกลุ่มเพื่อน (${count + 1} คน คนละ ฿${shareAmt})`,
-                detail: `วันที่ ${date} เพื่อนโอนเข้า ${count} คน รวม +${(shareAmt * count).toLocaleString()} ก่อนจ่ายออก -${groupDebit.debit.toLocaleString()} (จ่ายจริงเฉพาะของคุณคือ ฿${shareAmt})`
-              });
-            }
-          }
-        }
-      }
-    }
-
-    return { detectedEvents, passThroughTxIds, splitNoteById };
   }
 };

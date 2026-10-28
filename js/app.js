@@ -185,9 +185,7 @@ function runAnalysisAndRender(shouldSave = true) {
   renderOverviewMetrics();
   renderAccountMetadataCard();
   renderUploadedFilesBar();
-  renderLifestylePresets();
   renderAISummary();
-  renderSelfAccountsFlow();
   renderPriorityQueue();
   renderCategoryBreakdown();
   renderTopRecipients();
@@ -338,70 +336,6 @@ window.TangHai.saveAccountMetadata = function() {
   notify('บันทึกข้อมูลเจ้าของบัญชีเรียบร้อย ระบบตรวจจับโอนบัญชีตัวเองทันที');
 };
 
-window.TangHai.triggerAIColumnCheck = async function() {
-  const modal = document.getElementById('ai-column-modal');
-  const reportEl = document.getElementById('ai-column-report-content');
-  if (!modal || !reportEl) return;
-
-  modal.classList.remove('hidden');
-  reportEl.innerHTML = `
-    <div class="py-4 text-center space-y-2">
-      <div class="inline-block animate-spin rounded-full h-6 w-6 border-2 border-zinc-900 border-t-transparent"></div>
-      <p class="text-zinc-600">กำลังวิเคราะห์ความถูกต้องของการจัดคอลัมน์และข้อมูลสเตทเมนต์...</p>
-    </div>
-  `;
-
-  // วิเคราะห์สถิติคอลัมน์
-  const total = AppState.transactions.length;
-  const selfCount = AppState.transactions.filter(t => t.category === 'SELF_TRANSFER').length;
-  const bankName = AppState.meta?.bankName || 'BANK';
-  const accountName = AppState.meta?.accountName || 'ไม่พบ (แนะนำให้ระบุ)';
-  const multiLineDescCount = AppState.transactions.filter(t => t.description && t.description.length > 30).length;
-
-  setTimeout(() => {
-    reportEl.innerHTML = `
-      <div class="space-y-4">
-        <div class="p-3.5 rounded-xl bg-emerald-50 border border-emerald-100 flex items-start gap-2.5">
-          <span class="text-emerald-700 font-bold">✓</span>
-          <div>
-            <div class="font-semibold text-emerald-950">ตรวจพบโครงสร้างคอลัมน์สมบูรณ์ 100%</div>
-            <p class="text-emerald-800 text-[11px] mt-0.5">
-              ระบบจัดเรียง วันที่, เวลา, ช่องทาง, ยอดเงินเข้า/ออก (Debit/Credit), คงเหลือ (Balance) และรายละเอียดรายการถูกต้องครบถ้วน
-            </p>
-          </div>
-        </div>
-
-        <div class="grid grid-cols-2 gap-3">
-          <div class="p-3 rounded-xl border border-zinc-200 bg-zinc-50">
-            <div class="text-[11px] text-zinc-500">ธนาคารที่ตรวจพบ</div>
-            <div class="font-semibold text-zinc-900 mt-0.5">${bankName}</div>
-          </div>
-          <div class="p-3 rounded-xl border border-zinc-200 bg-zinc-50">
-            <div class="text-[11px] text-zinc-500">ชื่อเจ้าของบัญชี</div>
-            <div class="font-semibold text-zinc-900 mt-0.5 truncate">${accountName}</div>
-          </div>
-          <div class="p-3 rounded-xl border border-zinc-200 bg-zinc-50">
-            <div class="text-[11px] text-zinc-500">จำนวนธุรกรรมทั้งหมด</div>
-            <div class="font-semibold text-zinc-900 mt-0.5">${total} รายการ</div>
-          </div>
-          <div class="p-3 rounded-xl border border-zinc-200 bg-zinc-50">
-            <div class="text-[11px] text-zinc-500">โอนบัญชีตัวเองที่ตัดออก</div>
-            <div class="font-semibold text-zinc-900 mt-0.5">${selfCount} รายการ</div>
-          </div>
-        </div>
-
-        <div class="p-3 rounded-xl bg-zinc-50 border border-zinc-200 space-y-1">
-          <div class="font-semibold text-zinc-900 text-[11px]">การตรวจสอบความต่อเนื่องของคำอธิบาย (Multi-line Merger)</div>
-          <p class="text-[11px] text-zinc-600">
-            พบคำอธิบายรายการยาว/ขึ้นบรรทัดใหม่ ${multiLineDescCount} รายการ — ระบบทำการเชื่อมต่อข้อความข้ามบรรทัดให้อัตโนมัติ ทำให้ชื่อร้านค้าและเลขอ้างอิงไม่ตกหล่น
-          </p>
-        </div>
-      </div>
-    `;
-  }, 400);
-};
-
-
 function renderUploadedFilesBar() {
   const container = document.getElementById('uploaded-files-bar');
   if (!container) return;
@@ -444,15 +378,24 @@ function updateModeSwitcherUI() {
     btnBasic.className = !isAI
       ? 'px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg text-[11px] sm:text-xs font-semibold bg-zinc-900 text-white shadow-sm transition'
       : 'px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg text-[11px] sm:text-xs font-medium text-zinc-600 hover:text-zinc-900 transition';
-    btnAI.className = isAI
-      ? 'px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg text-[11px] sm:text-xs font-semibold bg-indigo-600 text-white shadow-sm transition'
-      : 'px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg text-[11px] sm:text-xs font-medium text-zinc-600 hover:text-zinc-900 transition';
-    
-    btnBasic.innerHTML = '<span class="hidden sm:inline">โหมดพื้นฐาน</span><span class="sm:hidden">พื้นฐาน</span>';
+
     if (AppState.isAiLoading) {
-      btnAI.innerHTML = '<span class="hidden sm:inline">กำลังวิเคราะห์...</span><span class="sm:hidden">คิดอยู่...</span>';
+      btnAI.className = 'px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg text-[11px] sm:text-xs font-semibold bg-indigo-500 text-white shadow-sm transition opacity-80 cursor-wait';
+      btnAI.innerHTML = `
+        <span class="inline-flex items-center gap-1.5">
+          <svg class="animate-spin w-3 h-3 shrink-0" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4l3-3-3-3v4a8 8 0 00-8 8h4z"></path>
+          </svg>
+          <span class="hidden xl:inline">กำลังวิเคราะห์...</span>
+          <span class="xl:hidden">AI...</span>
+        </span>`;
     } else {
-      btnAI.innerHTML = '<span class="hidden sm:inline">โหมด Gemini AI</span><span class="sm:hidden">AI</span>';
+      btnAI.className = isAI
+        ? 'px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg text-[11px] sm:text-xs font-semibold bg-indigo-600 text-white shadow-sm transition'
+        : 'px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg text-[11px] sm:text-xs font-medium text-zinc-600 hover:text-zinc-900 transition';
+      btnBasic.innerHTML = '<span class="hidden xl:inline">โหมดพื้นฐาน</span><span class="xl:hidden">พื้นฐาน</span>';
+      btnAI.innerHTML = '<span class="hidden xl:inline">โหมด Gemini AI</span><span class="xl:hidden">AI</span>';
     }
   }
 
@@ -460,6 +403,47 @@ function updateModeSwitcherUI() {
     aiStatusText.textContent = isAI
       ? 'เปิดใช้ Gemini Flash ช่วยวิเคราะห์และแจกแจงหมวดหมู่อัตโนมัติ'
       : 'โหมดแยกพื้นฐาน (Rule-Based เร็วทันที)';
+  }
+}
+
+function showAILoadingOverlay(subText = 'จัดหมวดหมู่รายการอัตโนมัติ กรุณารอสักครู่') {
+  const overlay = document.getElementById('ai-loading-overlay');
+  const sub = document.getElementById('ai-loading-sub');
+  const bar = document.getElementById('ai-loading-bar');
+  if (!overlay) return;
+  if (sub) sub.textContent = subText;
+  overlay.classList.remove('hidden');
+  // animate progress bar from 20% → 85% ระหว่างรอ
+  if (bar) {
+    bar.style.transition = 'none';
+    bar.style.width = '20%';
+    requestAnimationFrame(() => {
+      bar.style.transition = 'width 8s cubic-bezier(0.4, 0, 0.2, 1)';
+      bar.style.width = '85%';
+    });
+  }
+}
+
+function hideAILoadingOverlay(success = true) {
+  const overlay = document.getElementById('ai-loading-overlay');
+  const title = document.getElementById('ai-loading-title');
+  const sub = document.getElementById('ai-loading-sub');
+  const bar = document.getElementById('ai-loading-bar');
+  if (!overlay) return;
+
+  if (success && bar) {
+    bar.style.transition = 'width 0.3s ease';
+    bar.style.width = '100%';
+    if (title) title.textContent = 'วิเคราะห์สำเร็จ ✓';
+    if (sub) sub.textContent = 'จัดหมวดหมู่ครบทุกรายการแล้ว';
+    setTimeout(() => {
+      overlay.classList.add('hidden');
+      if (title) title.textContent = 'Gemini กำลังวิเคราะห์...';
+      if (sub) sub.textContent = 'จัดหมวดหมู่รายการอัตโนมัติ กรุณารอสักครู่';
+      if (bar) bar.style.width = '40%';
+    }, 900);
+  } else {
+    overlay.classList.add('hidden');
   }
 }
 
@@ -474,16 +458,19 @@ window.TangHai.setAnalysisMode = async function(mode) {
     try {
       AppState.isAiLoading = true;
       updateModeSwitcherUI();
-      notify('กำลังส่งรายการที่ไม่คุ้นเคยให้ Gemini 2.5 Flash ช่วยวิเคราะห์...');
+      showAILoadingOverlay(`กำลังส่งรายการให้ Gemini วิเคราะห์ (${AppState.rawTransactions.length} รายการ)`);
       const res = await window.TangHai.Categorizer.runGeminiLLMAnalysis(AppState.rawTransactions);
       AppState.isAiLoading = false;
       runAnalysisAndRender();
-      notify(res.cached ? 'สลับเป็นโหมด Gemini AI เรียบร้อย (ดึงจากหน่วยความจำ)' : 'Gemini 2.5 Flash วิเคราะห์สำเร็จ!');
+      updateModeSwitcherUI();
+      hideAILoadingOverlay(true);
+      notify(res.cached ? 'โหมด Gemini AI เรียบร้อย (ดึงจากแคชในเครื่อง)' : '✓ Gemini วิเคราะห์สำเร็จ จัดหมวดหมู่ครบทุกรายการ');
     } catch (err) {
       AppState.isAiLoading = false;
       AppState.analysisMode = 'BASIC';
       localStorage.setItem('tanghai_analysis_mode', 'BASIC');
       updateModeSwitcherUI();
+      hideAILoadingOverlay(false);
       runAnalysisAndRender();
 
       if (err.code === 'NEED_API_KEY') {
@@ -817,28 +804,40 @@ function renderMemoryRules() {
 
   if (entries.length === 0) {
     container.innerHTML = `
-      <div class="py-8 text-center text-xs text-zinc-400">
-        ยังไม่มีรายชื่อที่บันทึกไว้ในสมุดช่วยจำ
+      <div class="py-6 space-y-3">
+        <div class="text-xs text-zinc-500 leading-relaxed">
+          <b class="text-zinc-700 font-semibold">สมุดจำยังว่างอยู่</b> — ระบบจะบันทึกอัตโนมัติทุกครั้งที่คุณ<b>ระบุหมวดหมู่</b>ให้รายการในหน้า "จัดหมวดหมู่"
+        </div>
+        <div class="p-3 rounded-xl bg-zinc-50 border border-zinc-100 text-xs text-zinc-500 space-y-1.5">
+          <div class="flex items-start gap-2"><span class="text-zinc-400 shrink-0 mt-0.5">→</span><span>ไปที่หน้า <b class="text-zinc-700">จัดหมวดหมู่</b> เลือกหมวดให้รายการ แล้วกด <b class="text-zinc-700">บันทึก</b></span></div>
+          <div class="flex items-start gap-2"><span class="text-zinc-400 shrink-0 mt-0.5">→</span><span>ระบบจะจำชื่อร้าน/คนนั้นไว้ ครั้งถัดไปจะแยกหมวดให้อัตโนมัติทันที</span></div>
+          <div class="flex items-start gap-2"><span class="text-zinc-400 shrink-0 mt-0.5">→</span><span>ข้อมูลเก็บในเบราว์เซอร์เครื่องนี้ ไม่ส่งออกไปไหน</span></div>
+        </div>
       </div>
     `;
     return;
   }
 
-  container.innerHTML = entries.map(([key, rule]) => {
-    const cat = window.TangHai.CATEGORIES[rule.category] || window.TangHai.CATEGORIES.UNKNOWN;
-    return `
-      <div class="flex items-center justify-between p-3.5 rounded-xl bg-zinc-50 border border-zinc-200/80 text-xs">
-        <div class="min-w-0 pr-3 space-y-1">
-          <div class="text-sm font-medium text-zinc-900 truncate">${rule.alias}</div>
-          <div class="text-xs text-zinc-500 truncate">${key}  ·  ${cat.label}</div>
-        </div>
-        <button onclick="window.TangHai.removeMemoryRule('${key.replace(/'/g, "\\'")}')"
-          class="text-zinc-400 hover:text-rose-600 px-2.5 py-1.5 text-xs transition shrink-0">
-          ลบ
-        </button>
-      </div>
-    `;
-  }).join('');
+  container.innerHTML = `
+    <div class="text-xs text-zinc-400 pb-2">${entries.length} รายชื่อที่จำไว้ — จะแยกหมวดอัตโนมัติในรอบถัดไป</div>
+    <div class="space-y-2">
+      ${entries.map(([key, rule]) => {
+        const cat = window.TangHai.CATEGORIES[rule.category] || window.TangHai.CATEGORIES.UNKNOWN;
+        return `
+          <div class="flex items-center justify-between p-3.5 rounded-xl bg-zinc-50 border border-zinc-200/80 text-xs">
+            <div class="min-w-0 pr-3 space-y-0.5">
+              <div class="text-sm font-medium text-zinc-900 truncate">${rule.alias || key}</div>
+              <div class="text-xs text-zinc-400 truncate">${key} · <span class="font-medium" style="color:${cat.color}">${cat.label}</span></div>
+            </div>
+            <button onclick="window.TangHai.removeMemoryRule('${key.replace(/'/g, "\\'")}')"
+              class="text-zinc-300 hover:text-rose-500 px-2.5 py-1.5 text-xs transition shrink-0 rounded-lg hover:bg-rose-50">
+              ลบ
+            </button>
+          </div>
+        `;
+      }).join('')}
+    </div>
+  `;
 }
 
 function renderSelfAccountsFlow() {
@@ -847,7 +846,22 @@ function renderSelfAccountsFlow() {
 
   const list = AppState.selfAccounts || [];
   if (list.length === 0) {
-    container.innerHTML = `<div class="text-xs text-zinc-400 py-4">ไม่พบรายการโอนระหว่างบัญชีชื่อเดียวกัน</div>`;
+    const hasOwnerName = !!(AppState.meta?.accountName);
+    container.innerHTML = `
+      <div class="col-span-2 py-6 text-center space-y-2">
+        <div class="text-xs text-zinc-500">
+          ${hasOwnerName
+            ? 'ไม่พบรายการโอนระหว่างบัญชีชื่อเดียวกัน ในรอบนี้'
+            : 'ยังไม่ได้ระบุชื่อเจ้าของบัญชี — ระบบจะตรวจจับรายการโอนบัญชีตัวเองได้แม่นขึ้นถ้าระบุชื่อ'}
+        </div>
+        ${!hasOwnerName ? `
+          <button onclick="window.TangHai.openEditAccountModal()"
+            class="text-xs text-indigo-600 hover:text-indigo-800 underline font-medium">
+            + ระบุชื่อเจ้าของบัญชี
+          </button>
+        ` : ''}
+      </div>
+    `;
     return;
   }
 
@@ -1250,18 +1264,20 @@ async function triggerAutoAIAnalysis() {
   try {
     AppState.analysisMode = 'AI';
     localStorage.setItem('tanghai_analysis_mode', 'AI');
-    updateModeSwitcherUI();
     AppState.isAiLoading = true;
     updateModeSwitcherUI();
-    notify('Gemini AI กำลังวิเคราะห์และแยกหมวดหมู่อัตโนมัติ...');
+    showAILoadingOverlay(`กำลังส่งรายการให้ Gemini วิเคราะห์ (${AppState.rawTransactions.length} รายการ)`);
     const res = await window.TangHai.Categorizer.runGeminiLLMAnalysis(AppState.rawTransactions);
     AppState.isAiLoading = false;
     runAnalysisAndRender();
-    notify(res.cached ? 'Gemini AI จัดหมวดหมู่เรียบร้อยแล้ว' : 'Gemini AI วิเคราะห์และจัดหมวดหมู่อัตโนมัติสำเร็จ!');
+    updateModeSwitcherUI();
+    hideAILoadingOverlay(true);
+    notify(res.cached ? '✓ Gemini AI จัดหมวดหมู่เรียบร้อย (จากแคช)' : '✓ Gemini AI วิเคราะห์สำเร็จ จัดหมวดหมู่ครบแล้ว');
   } catch (err) {
     AppState.isAiLoading = false;
     updateModeSwitcherUI();
-    // หากเกิดข้อผิดพลาด ให้ fallback ใช้ Rule-based อย่างราบรื่น ไม่รบกวนผู้ใช้
+    hideAILoadingOverlay(false);
+    // fallback ใช้ Rule-based อย่างราบรื่น ไม่รบกวนผู้ใช้
   }
 }
 

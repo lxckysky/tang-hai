@@ -177,7 +177,7 @@ window.TangHai.PDFParser = {
     const moneyTokensRegex = /[+\-]?[\d,]+\.\d{2}/g;
 
     // กรองบรรทัดหัวตารางและสรุปท้ายหน้า ไม่ให้กลายเป็นรายการหรือแทรกในคำอธิบาย
-    const tableIgnoreRegex = /^(?:วันที่มีผล|วันที่\s+เวลา|รายการ\s+ถอนเงิน|Date\s+Time|Time\s+Code|ช่องทาง\s+ลูกหนี้|TOTAL AMOUNTS|TOTAL ITEMS|ยอดยกไป|รวมถอนเงิน|รวมฝากเงิน|\(บาท\)|This document is auto-generated|PAGE\/OF|DD\.\d+|เลขที่บัญชีเงินฝาก|สาขาเจ้าของบัญชี|รอบระหว่างวันที่|STATEMENT OF SAVING ACCOUNT)/i;
+    const tableIgnoreRegex = /(?:วันที่มีผล|วันที่\s+เวลา|รายการ\s+ถอนเงิน|Date\s+Time|Time\s+Code|ช่องทาง\s+ลูกหนี้|TOTAL\s*AMOUNTS|TOTAL\s*ITEMS|ยอดยกไป|รวมถอนเงิน|รวมฝากเงิน|\(บาท\)|This document is auto-generated|PAGE\/OF|DD\.\d+|เลขที่บัญชี|สาขาเจ้าของบัญชี|สาขา\s+[A-Zก-๙]|รอบระหว่างวันที่|STATEMENT\s*OF|ใบแจ้งรายการบัญชี|เอกสารฉบับนี้ออกโดยระบบอัตโนมัติ|จึงไม่ต้องมีการลงลายมือชื่อ|หน้า\s*\d+\s*[\/\-]\s*\d+|THE SIAM COMMERCIAL BANK|ธนาคารไทยพาณิชย์|KASIKORNBANK|BANGKOK BANK|KRUNG THAI|ชื่อ\s*-\s*สกุล|Account\s*Name|Account\s*No|Address\s*Account|ที่อยู่\s*เลขที่บัญชี)/i;
 
     let currentTx = null;
     let idx = 1;
@@ -280,8 +280,12 @@ window.TangHai.PDFParser = {
 
       // ด่านที่ 3: รวมคำอธิบายที่ขึ้นบรรทัดใหม่ (Multi-line Description Continuation)
       if (currentTx) {
-        // ป้องกันเลขหน้าหรือหัวตารางหลุดเข้ามา
-        if (!/^\d+\/\d+\(\d+\)/.test(line) && line.length > 0) {
+        // ถ้าอยู่คนละหน้ากับรายการปัจจุบัน ห้ามนำมาต่อเด็ดขาด (เพราะเป็นข้อความส่วนหัวของหน้าใหม่)
+        if (lineObj.page !== currentTx.page) {
+          continue;
+        }
+        // ป้องกันเลขหน้า, ข้อมูลส่วนหัว หรือข้อความระบบหลุดเข้ามา
+        if (!/^\d+\/\d+/.test(line) && !tableIgnoreRegex.test(line) && line.length > 0) {
           currentTx.description = (currentTx.description + ' ' + line).trim();
         }
       }
