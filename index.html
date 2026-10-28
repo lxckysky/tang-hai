@@ -58,8 +58,8 @@
         </button>
         <button data-page="PRIORITY" onclick="window.TangHai.switchPage('PRIORITY')"
           class="nav-page-btn px-3.5 py-1.5 rounded-lg text-xs font-medium text-zinc-600 hover:text-zinc-900 transition flex items-center gap-1.5">
-          <span>ระบุยอดใหญ่</span>
-          <span id="nav-badge-priority" class="px-1.5 py-0.2 rounded-full bg-amber-500 text-white text-[10px] font-bold">0</span>
+          <span>จัดหมวดหมู่</span>
+          <span id="nav-badge-priority" class="px-1.5 py-0.2 rounded-full bg-zinc-200 text-zinc-700 text-[10px] font-bold">0</span>
         </button>
         <button data-page="TRANSACTIONS" onclick="window.TangHai.switchPage('TRANSACTIONS')"
           class="nav-page-btn px-3.5 py-1.5 rounded-lg text-xs font-medium text-zinc-600 hover:text-zinc-900 transition">
@@ -71,31 +71,39 @@
         </button>
       </nav>
 
-      <div id="header-actions" class="hidden flex items-center gap-2 shrink-0">
-        <!-- ปุ่มสลับโหมด พื้นฐาน vs Gemini AI ใน 1 คลิก -->
-        <div class="flex items-center bg-zinc-100 p-1 rounded-xl border border-zinc-200">
-          <button id="mode-btn-basic" onclick="window.TangHai.setAnalysisMode('BASIC')"
-            class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-zinc-900 text-white shadow-sm transition">
-            โหมดพื้นฐาน
-          </button>
-          <button id="mode-btn-ai" onclick="window.TangHai.setAnalysisMode('AI')"
-            class="px-3 py-1.5 rounded-lg text-xs font-medium text-zinc-600 hover:text-zinc-900 transition">
-            โหมด Gemini AI
-          </button>
-        </div>
+      <div class="flex items-center gap-2 shrink-0">
+        <!-- ปุ่มคู่มือรูปแบบธนาคารและคอลัมน์ แสดงจุดเดียวบน Bar ด้านบนตลอดเวลา -->
+        <button onclick="window.TangHai.openBankGuideModal()"
+          class="px-3 py-2 rounded-lg border border-zinc-200 bg-white hover:bg-zinc-50 text-xs font-medium text-zinc-700 transition" title="ตรวจสอบธนาคารและรูปแบบคอลัมน์ที่รองรับ">
+          รูปแบบที่รองรับ
+        </button>
 
-        <button onclick="window.TangHai.exportCSV()"
-          class="hidden sm:inline-block px-3 py-2 rounded-lg border border-zinc-200 bg-white hover:bg-zinc-50 text-xs font-medium text-zinc-700 transition">
-          CSV
-        </button>
-        <button onclick="window.TangHai.clearSession()"
-          class="px-3 py-2 rounded-lg border border-zinc-200 bg-white hover:bg-rose-50 hover:text-rose-600 text-xs font-medium text-zinc-600 transition">
-          ล้างข้อมูล
-        </button>
-        <label class="cursor-pointer px-3 py-2 rounded-lg bg-zinc-900 hover:bg-zinc-800 text-xs font-medium text-white transition">
-          + เพิ่มสเตทเมนต์
-          <input type="file" accept=".pdf" class="pdf-append-input hidden" />
-        </label>
+        <div id="header-actions" class="hidden flex items-center gap-2 shrink-0">
+          <!-- ปุ่มสลับโหมด พื้นฐาน vs Gemini AI ใน 1 คลิก -->
+          <div class="flex items-center bg-zinc-100 p-1 rounded-xl border border-zinc-200">
+            <button id="mode-btn-basic" onclick="window.TangHai.setAnalysisMode('BASIC')"
+              class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-zinc-900 text-white shadow-sm transition">
+              โหมดพื้นฐาน
+            </button>
+            <button id="mode-btn-ai" onclick="window.TangHai.setAnalysisMode('AI')"
+              class="px-3 py-1.5 rounded-lg text-xs font-medium text-zinc-600 hover:text-zinc-900 transition">
+              โหมด Gemini AI
+            </button>
+          </div>
+
+          <button onclick="window.TangHai.exportCSV()"
+            class="hidden sm:inline-block px-3 py-2 rounded-lg border border-zinc-200 bg-white hover:bg-zinc-50 text-xs font-medium text-zinc-700 transition">
+            CSV
+          </button>
+          <button onclick="window.TangHai.clearSession()"
+            class="px-3 py-2 rounded-lg border border-zinc-200 bg-white hover:bg-rose-50 hover:text-rose-600 text-xs font-medium text-zinc-600 transition">
+            ล้างข้อมูล
+          </button>
+          <label class="cursor-pointer px-3 py-2 rounded-lg bg-zinc-900 hover:bg-zinc-800 text-xs font-medium text-white transition">
+            + เพิ่มสเตทเมนต์
+            <input type="file" accept=".pdf" class="pdf-append-input hidden" />
+          </label>
+        </div>
       </div>
     </div>
   </header>
@@ -122,7 +130,7 @@
           <input type="file" accept=".pdf" class="pdf-file-input hidden" />
         </label>
 
-        <div class="pt-2 text-center">
+        <div class="pt-2 flex flex-col items-center gap-2.5 text-center">
           <button onclick="window.TangHai.loadSampleData()"
             class="text-xs text-zinc-500 hover:text-zinc-900 underline underline-offset-4 transition">
             ไม่มีไฟล์ PDF ในเครื่อง? คลิกเพื่อทดลองด้วยข้อมูลสเตทเมนต์ตัวอย่าง
@@ -135,6 +143,25 @@
     <!-- หน้าแสดงผลและตรวจสอบข้อมูลหลังอัปโหลดไฟล์ (4 หน้าแยกกัน โล่งสบายตา) -->
     <div id="workspace-view" class="hidden space-y-8">
 
+      <!-- แถบข้อมูลบัญชี (Account Metadata Bar) เรียบหรู Minimal -->
+      <div id="account-metadata-card" class="bg-white border border-zinc-200 rounded-2xl p-4 sm:p-5 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div class="flex flex-wrap items-center gap-3">
+          <div class="px-3 py-1.5 rounded-xl bg-zinc-900 text-white text-xs font-bold shrink-0" id="badge-bank-name">BANK</div>
+          <div class="space-y-0.5">
+            <div class="flex items-center gap-2">
+              <span class="text-sm font-semibold text-zinc-900" id="display-account-name">ชื่อเจ้าของบัญชี</span>
+              <button onclick="window.TangHai.openEditAccountModal()" class="text-xs text-zinc-500 hover:text-zinc-900 font-medium underline flex items-center gap-1">
+                แก้ไข / ระบุชื่อ
+              </button>
+            </div>
+            <div class="text-xs text-zinc-500 flex flex-wrap gap-x-4 gap-y-0.5">
+              <span>เลขที่บัญชี: <b id="display-account-no" class="font-medium text-zinc-700">-</b></span>
+              <span>รอบระยะเวลา: <b id="display-period" class="font-medium text-zinc-700">-</b></span>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- แถบแสดงรายการไฟล์สเตทเมนต์ที่รวมอยู่ในระบบ -->
       <div id="uploaded-files-bar" class="flex flex-wrap items-center gap-2"></div>
 
@@ -143,21 +170,7 @@
            ========================================================= -->
       <div id="page-OVERVIEW" class="page-view space-y-8">
 
-        <!-- แบนเนอร์แจ้งเตือนเมื่อมีรายการรอระบุ (กดปุ๊บเด้งไปหน้าระบุยอดใหญ่ทันที) -->
-        <div id="overview-priority-banner" class="hidden bg-amber-50 border border-amber-200 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div>
-            <div class="text-sm font-semibold text-amber-950">พบรายการที่ยังไม่ระบุหมวดหมู่</div>
-            <p class="text-xs text-amber-800 mt-0.5">
-              เราได้มัดรวมตามชื่อผู้รับและเรียงจากยอดเงินใหญ่สุดไว้ให้แล้ว เพื่อให้คุณระบุได้ง่ายโดยไม่ต้องไล่อ่านทีละบรรทัด
-            </p>
-          </div>
-          <button onclick="window.TangHai.switchPage('PRIORITY')"
-            class="shrink-0 px-4 py-2.5 rounded-xl bg-amber-900 hover:bg-amber-950 text-white text-xs font-semibold transition">
-            ไปหน้าระบุยอดใหญ่ →
-          </button>
-        </div>
-
-        <!-- การ์ดตัวเลขสรุป 4 ช่อง (เพิ่มพื้นที่ว่างให้อ่านง่ายบนทุกอุปกรณ์) -->
+        <!-- การ์ดตัวเลขสรุป 4 ช่อง (อ่านง่ายบนทุกอุปกรณ์) -->
         <section class="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5">
           <div class="bg-white border border-zinc-200 rounded-2xl p-6 shadow-sm">
             <div class="text-xs font-medium text-zinc-500">รายจ่ายใช้ชีวิตจริง (True Personal Spend)</div>
@@ -178,9 +191,9 @@
           </div>
 
           <div class="bg-white border border-zinc-200 rounded-2xl p-6 shadow-sm">
-            <div class="text-xs font-medium text-zinc-500">รายการรอระบุหมวดหมู่</div>
-            <div id="metric-review" class="text-2xl font-bold text-amber-700 tabular-nums tracking-tight mt-2">0 รายการ</div>
-            <div id="metric-review-sub" class="text-xs text-zinc-500 mt-2">คัดกรองชื่อซ้ำอัตโนมัติ</div>
+            <div class="text-xs font-medium text-zinc-500">โอนให้บุคคล / อื่นๆ</div>
+            <div id="metric-review" class="text-2xl font-bold text-zinc-900 tabular-nums tracking-tight mt-2">0 รายการ</div>
+            <div id="metric-review-sub" class="text-xs text-zinc-500 mt-2">จัดหมวดหมู่อัตโนมัติ (ปรับแก้ได้)</div>
           </div>
         </section>
 
@@ -219,15 +232,32 @@
            หน้าที่ 2: ระบุยอดใหญ่ก่อน (PRIORITY REVIEW PAGE)
            ========================================================= -->
       <div id="page-PRIORITY" class="page-view hidden space-y-6">
+
+        <!-- กล่องหมวดหมู่แนะนำตามไลฟ์สไตล์ (Personalized Lifestyle Presets & AI Suggestions) -->
+        <div class="bg-gradient-to-r from-indigo-50/70 via-purple-50/50 to-pink-50/50 border border-indigo-100 rounded-2xl p-5 shadow-sm space-y-3">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div>
+              <div class="text-sm font-semibold text-zinc-900 flex items-center gap-2">
+                <span>หมวดหมู่แนะนำตามไลฟ์สไตล์</span>
+                <span class="text-[10px] px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-800 font-semibold">เฉพาะคุณ</span>
+              </div>
+              <p class="text-xs text-zinc-600 mt-0.5">
+                เพราะการใช้จ่ายของแต่ละคนไม่เหมือนกัน แตะเพื่อเพิ่มหมวดหมู่เฉพาะตัวของคุณ หรือพิมพ์สร้างใหม่ได้ไม่จำกัด
+              </p>
+            </div>
+          </div>
+          <div id="lifestyle-presets-bar" class="flex flex-wrap items-center gap-2 pt-1"></div>
+        </div>
+
         <section id="priority-queue-section" class="bg-white border border-zinc-200 rounded-2xl p-6 sm:p-8 shadow-sm space-y-5">
           <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-zinc-100">
             <div>
               <div class="flex flex-wrap items-center gap-2.5">
-                <h2 class="text-lg font-semibold text-zinc-900">ระบุรายการที่ยังไม่ทราบหมวดหมู่ (เรียงจากยอดใหญ่สุด)</h2>
-                <span id="priority-queue-count" class="text-xs px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-900 font-medium"></span>
+                <h2 class="text-lg font-semibold text-zinc-900">จัดการและตรวจสอบหมวดหมู่ (เรียงตามยอดเงิน)</h2>
+                <span id="priority-queue-count" class="text-xs px-2.5 py-0.5 rounded-full bg-zinc-100 text-zinc-700 font-medium"></span>
               </div>
               <p class="text-xs text-zinc-500 mt-1">
-                ระบบรวมยอดโอนให้ผู้รับคนเดิมไว้ในการ์ดเดียว และมีคำใบ้จาก AI ช่วยเดาจากยอดเงินและเวลาที่โอน
+                ระบบจัดหมวดหมู่อัตโนมัติให้แล้ว (ร้านค้า, โอนให้บุคคล หรืออื่นๆ) คุณสามารถเลือกปรับเปลี่ยนหรือสร้างหมวดหมู่ใหม่ได้ทันที
               </p>
             </div>
 
@@ -272,13 +302,17 @@
                   class="filter-btn px-3.5 py-2 rounded-xl text-xs font-medium bg-zinc-900 text-white">
                   ทั้งหมด (<span id="count-all">0</span>)
                 </button>
-                <button data-filter="NEEDS_INPUT" onclick="window.TangHai.setFilter('NEEDS_INPUT')"
+                <button data-filter="TRANSFER_PERSON" onclick="window.TangHai.setFilter('TRANSFER_PERSON')"
                   class="filter-btn px-3.5 py-2 rounded-xl text-xs font-medium bg-white text-zinc-600 hover:bg-zinc-100 border border-zinc-200">
-                  รอระบุเอง (<span id="count-unknown">0</span>)
+                  โอนให้บุคคล (<span id="count-person">0</span>)
+                </button>
+                <button data-filter="UNKNOWN" onclick="window.TangHai.setFilter('UNKNOWN')"
+                  class="filter-btn px-3.5 py-2 rounded-xl text-xs font-medium bg-white text-zinc-600 hover:bg-zinc-100 border border-zinc-200">
+                  อื่นๆ (<span id="count-unknown">0</span>)
                 </button>
                 <button data-filter="AI_GUESS" onclick="window.TangHai.setFilter('AI_GUESS')"
                   class="filter-btn px-3.5 py-2 rounded-xl text-xs font-medium bg-white text-zinc-600 hover:bg-zinc-100 border border-zinc-200">
-                  เดาจากชื่อบริษัท (<span id="count-ai">0</span>)
+                  แยกจากชื่อร้าน (<span id="count-ai">0</span>)
                 </button>
                 <button data-filter="MEMORY" onclick="window.TangHai.setFilter('MEMORY')"
                   class="filter-btn px-3.5 py-2 rounded-xl text-xs font-medium bg-white text-zinc-600 hover:bg-zinc-100 border border-zinc-200">
@@ -370,7 +404,7 @@
       </button>
       <button data-page="PRIORITY" onclick="window.TangHai.switchPage('PRIORITY')"
         class="mobile-nav-btn py-2 px-1 rounded-xl text-xs font-medium text-zinc-600 text-center transition">
-        ระบุยอดใหญ่ (<span id="mobile-badge-priority">0</span>)
+        จัดหมวดหมู่ (<span id="mobile-badge-priority">0</span>)
       </button>
       <button data-page="TRANSACTIONS" onclick="window.TangHai.switchPage('TRANSACTIONS')"
         class="mobile-nav-btn py-2 px-1 rounded-xl text-xs font-medium text-zinc-600 text-center transition">
@@ -483,6 +517,163 @@
     </div>
   </div>
 
+  <!-- หน้าต่างคู่มือธนาคารและรูปแบบคอลัมน์ (Bank & Column Specification Modal) -->
+  <div id="bank-guide-modal" class="hidden fixed inset-0 z-50 bg-zinc-900/50 backdrop-blur-[2px] flex items-center justify-center p-4">
+    <div class="w-full max-w-2xl max-h-[90vh] bg-white border border-zinc-200 rounded-2xl shadow-2xl flex flex-col overflow-hidden">
+      <div class="px-6 py-4 border-b border-zinc-200 flex items-center justify-between gap-3 shrink-0">
+        <div>
+          <h3 class="text-base font-semibold text-zinc-900">รูปแบบสเตทเมนต์และโครงสร้างคอลัมน์ที่รองรับ</h3>
+          <p class="text-xs text-zinc-500 mt-0.5">ข้อมูลความเข้ากันได้ของธนาคารและการประมวลผลข้อมูล</p>
+        </div>
+        <button onclick="window.TangHai.closeBankGuideModal()"
+          class="px-3 py-1.5 rounded-lg border border-zinc-200 bg-white hover:bg-zinc-50 text-xs font-medium text-zinc-700 transition">
+          ปิด
+        </button>
+      </div>
+
+      <div class="p-6 overflow-y-auto space-y-6 text-xs text-zinc-700 leading-relaxed">
+        <!-- รายการธนาคาร -->
+        <div class="space-y-3">
+          <div class="font-semibold text-zinc-900 text-sm">ธนาคารที่รองรับ</div>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div class="p-3.5 rounded-xl border border-zinc-200 bg-zinc-50/70 space-y-1">
+              <div class="font-semibold text-zinc-900 flex items-center gap-1.5">
+                <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+                <span>กสิกรไทย (KBank / K PLUS)</span>
+              </div>
+              <p class="text-zinc-500">รองรับเลขบัญชี 4 กลุ่ม (เช่น 011-8-35708-6), ดึงชื่อเด็กหญิง/เด็กชาย/ผู้ใหญ่, รวมคำอธิบายร้านค้ายาว 2 บรรทัด (TikTok Shop, Uniqlo, CPN Food Patio)</p>
+            </div>
+            <div class="p-3.5 rounded-xl border border-zinc-200 bg-zinc-50/70 space-y-1">
+              <div class="font-semibold text-zinc-900 flex items-center gap-1.5">
+                <span class="w-2 h-2 rounded-full bg-purple-500"></span>
+                <span>ไทยพาณิชย์ (SCB / SCB EASY)</span>
+              </div>
+              <p class="text-zinc-500">รองรับคอลัมน์มาตรฐาน Date, Time, Code (X1/X2), Channel (ENET/SIPI/TELL), ยอดเงิน และรายละเอียดรายการ</p>
+            </div>
+            <div class="p-3.5 rounded-xl border border-zinc-200 bg-zinc-50/70 space-y-1">
+              <div class="font-semibold text-zinc-900 flex items-center gap-1.5">
+                <span class="w-2 h-2 rounded-full bg-blue-600"></span>
+                <span>กรุงเทพ (BBL Mobile Banking)</span>
+              </div>
+              <p class="text-zinc-500">รองรับโครงสร้างวันที่ เวลา รหัสธุรกรรม ยอดเงิน และคงเหลือ</p>
+            </div>
+            <div class="p-3.5 rounded-xl border border-zinc-200 bg-zinc-50/70 space-y-1">
+              <div class="font-semibold text-zinc-900 flex items-center gap-1.5">
+                <span class="w-2 h-2 rounded-full bg-sky-500"></span>
+                <span>กรุงไทย (Krungthai NEXT)</span>
+              </div>
+              <p class="text-zinc-500">สกัดผ่าน Universal Multi-Token Parser ตรวจจับประเภทรายการและเงินเข้า/ออก</p>
+            </div>
+            <div class="p-3.5 rounded-xl border border-zinc-200 bg-zinc-50/70 space-y-1">
+              <div class="font-semibold text-zinc-900 flex items-center gap-1.5">
+                <span class="w-2 h-2 rounded-full bg-blue-700"></span>
+                <span>ทีทีบี (ttb touch)</span>
+              </div>
+              <p class="text-zinc-500">คำนวณเงินเข้า/ออกด้วยสมการ Balance Delta แม่นยำ</p>
+            </div>
+            <div class="p-3.5 rounded-xl border border-zinc-200 bg-zinc-50/70 space-y-1">
+              <div class="font-semibold text-zinc-900 flex items-center gap-1.5">
+                <span class="w-2 h-2 rounded-full bg-amber-500"></span>
+                <span>กรุงศรีอยุธยา (BAY / KMA)</span>
+              </div>
+              <p class="text-zinc-500">สกัดหัวข้อรอบบิล ยอดยกมา และรายการเดินบัญชี</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- การจัดคอลัมน์ -->
+        <div class="p-4 rounded-xl bg-indigo-50/50 border border-indigo-100 space-y-2">
+          <div class="font-semibold text-zinc-900 text-xs">โครงสร้างคอลัมน์มาตรฐาน</div>
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 font-mono text-[11px] text-zinc-700">
+            <div class="bg-white p-2 rounded-lg border border-indigo-100">1. วันที่ (Date)</div>
+            <div class="bg-white p-2 rounded-lg border border-indigo-100">2. เวลา (Time)</div>
+            <div class="bg-white p-2 rounded-lg border border-indigo-100">3. ช่องทาง (Channel)</div>
+            <div class="bg-white p-2 rounded-lg border border-indigo-100">4. เงินออก (Debit)</div>
+            <div class="bg-white p-2 rounded-lg border border-indigo-100">5. เงินเข้า (Credit)</div>
+            <div class="bg-white p-2 rounded-lg border border-indigo-100">6. คงเหลือ (Balance)</div>
+            <div class="bg-white p-2 rounded-lg border border-indigo-100 col-span-2">7. รายละเอียด (Description รวมหลายบรรทัด)</div>
+          </div>
+        </div>
+
+        <!-- ถ้าข้อมูลขาดหาย -->
+        <div class="space-y-2">
+          <div class="font-semibold text-zinc-900">หากข้อมูลบางจุดขาดหายไป</div>
+          <ul class="list-disc pl-5 space-y-1.5 text-zinc-600">
+            <li><b>ชื่อเจ้าของบัญชีขาดหาย:</b> บางธนาคารเซ็นเซอร์ชื่อหรือพิมพ์เฉพาะเลขที่บัญชี คุณสามารถกดปุ่ม <b>"แก้ไข / ระบุชื่อ"</b> บนแถบข้อมูลบัญชี เพื่อใส่ชื่อตัวเองได้ทันที ระบบจะนำชื่อไปจับคู่ตัดยอดโอนบัญชีตัวเอง (Self-Transfer) ให้อัตโนมัติ</li>
+            <li><b>รวมชื่อข้ามธนาคาร:</b> เมื่อกด <b>"+ เพิ่มสเตทเมนต์"</b> จากธนาคารอื่น ระบบจะเก็บชื่อเจ้าของจากทุกธนาคารไว้ เพื่อให้เวลาโอนข้ามบัญชีตัวเอง (เช่น SCB ↔ KBank) ยอดเงินไม่บวม</li>
+            <li><b>จัดหมวดหมู่เฉพาะตัว:</b> แต่ละคนมีค่าใช้จ่ายที่ไม่เหมือนกัน (เช่น ค่าหอพัก, ทาสสัตว์เลี้ยง, ค่าเกม) สามารถแตะหมวดหมู่แนะนำ หรือสร้างหมวดหมู่ใหม่ได้ไม่จำกัด</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- หน้าต่างแก้ไข/ระบุชื่อเจ้าของบัญชี (Edit Owner Name Modal) -->
+  <div id="edit-account-modal" class="hidden fixed inset-0 z-50 bg-zinc-900/50 backdrop-blur-[2px] flex items-center justify-center p-4">
+    <div class="w-full max-w-md bg-white border border-zinc-200 rounded-2xl p-6 shadow-xl space-y-5">
+      <div>
+        <h3 class="text-base font-semibold text-zinc-900">ข้อมูลเจ้าของบัญชี</h3>
+        <p class="text-xs text-zinc-500 mt-1 leading-relaxed">
+          ชื่อนี้จะถูกใช้เพื่อตรวจจับรายการโอนข้ามบัญชีตัวเอง (Self-Transfer) และตัดออกจากรายจ่ายจริง
+        </p>
+      </div>
+
+      <div class="space-y-3">
+        <div class="space-y-1">
+          <label class="text-xs font-medium text-zinc-700">ชื่อ-นามสกุล เจ้าของบัญชีหลัก</label>
+          <input id="edit-acc-name-input" type="text" placeholder="เช่น ด.ญ. ทอฝัน สุทธิสาร หรือ นาย ศาศวรรต..."
+            class="w-full bg-white border border-zinc-300 rounded-xl px-3.5 py-2.5 text-xs text-zinc-900 focus:outline-none focus:border-zinc-900" />
+        </div>
+
+        <div class="space-y-1">
+          <label class="text-xs font-medium text-zinc-700">ชื่ออื่น / ชื่อ PromptPay เพิ่มเติม (คั่นด้วยจุลภาค ,)</label>
+          <input id="edit-acc-aliases-input" type="text" placeholder="เช่น ทอฝัน, ศาศวรรต..."
+            class="w-full bg-white border border-zinc-300 rounded-xl px-3.5 py-2.5 text-xs text-zinc-900 focus:outline-none focus:border-zinc-900" />
+        </div>
+
+        <div class="space-y-1">
+          <label class="text-xs font-medium text-zinc-700">ชื่อธนาคาร</label>
+          <input id="edit-acc-bank-input" type="text" placeholder="เช่น KBank, SCB..."
+            class="w-full bg-white border border-zinc-300 rounded-xl px-3.5 py-2.5 text-xs text-zinc-900 focus:outline-none focus:border-zinc-900" />
+        </div>
+      </div>
+
+      <div class="flex items-center justify-end gap-2 pt-2">
+        <button onclick="window.TangHai.closeEditAccountModal()"
+          class="px-3.5 py-2 rounded-xl border border-zinc-200 bg-white hover:bg-zinc-50 text-xs font-medium text-zinc-700 transition">
+          ยกเลิก
+        </button>
+        <button onclick="window.TangHai.saveAccountMetadata()"
+          class="px-4 py-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-white text-xs font-semibold transition">
+          บันทึกข้อมูล
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- หน้าต่างรายงานการตรวจสอบคอลัมน์ด้วย AI (AI Column Alignment Modal) -->
+  <div id="ai-column-modal" class="hidden fixed inset-0 z-50 bg-zinc-900/50 backdrop-blur-[2px] flex items-center justify-center p-4">
+    <div class="w-full max-w-xl bg-white border border-zinc-200 rounded-2xl p-6 shadow-xl space-y-4">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+          <h3 class="text-base font-semibold text-zinc-900">ผลการตรวจสอบการจัดคอลัมน์</h3>
+        </div>
+        <button onclick="document.getElementById('ai-column-modal').classList.add('hidden')"
+          class="px-3 py-1.5 rounded-lg border border-zinc-200 bg-white hover:bg-zinc-50 text-xs font-medium text-zinc-700 transition">ปิด</button>
+      </div>
+
+      <div id="ai-column-report-content" class="text-xs space-y-3 text-zinc-700 leading-relaxed"></div>
+
+      <div class="flex items-center justify-end pt-2">
+        <button onclick="document.getElementById('ai-column-modal').classList.add('hidden')"
+          class="px-4 py-2 rounded-xl bg-zinc-900 text-white text-xs font-semibold hover:bg-zinc-800 transition">
+          เข้าใจแล้ว
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- โหลดไฟล์ตั้งค่าคีย์ในเครื่องแบบเงียบๆ หากมีอยู่ (ถูกบล็อกด้วย .gitignore ไม่ขึ้น GitHub) -->
   <script>
     (function() {
@@ -492,6 +683,14 @@
       document.head.appendChild(s);
     })();
   </script>
+  <!-- Loading overlay when processing PDF -->
+  <div id="pdf-loading-overlay" class="hidden fixed inset-0 z-[60] bg-white/80 backdrop-blur-sm flex items-center justify-center">
+    <div class="flex flex-col items-center gap-3">
+      <div class="w-8 h-8 border-2 border-zinc-900 border-t-transparent rounded-full animate-spin"></div>
+      <p class="text-sm font-medium text-zinc-700" id="pdf-loading-text">กำลังประมวลผลไฟล์ PDF...</p>
+    </div>
+  </div>
+
   <script src="js/sampleData.js"></script>
   <script src="js/memoryStore.js"></script>
   <script src="js/pdfParser.js"></script>

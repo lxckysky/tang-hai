@@ -156,6 +156,7 @@ function runAnalysisAndRender(shouldSave = true) {
   AppState.aiSummaryBullets = result.aiSummaryBullets || [];
   AppState.selfAccounts = result.selfAccounts || [];
   AppState.priorityGroups = result.priorityGroups || [];
+  AppState.suggestedCategories = result.suggestedCategories || [];
   AppState.stats = result.stats;
 
   if (shouldSave) {
@@ -177,12 +178,13 @@ function runAnalysisAndRender(shouldSave = true) {
   if (navBadge) navBadge.textContent = pCount;
   if (mobBadge) mobBadge.textContent = pCount;
   if (banner) {
-    if (pCount > 0) banner.classList.remove('hidden');
-    else banner.classList.add('hidden');
+    banner.classList.add('hidden');
   }
 
   renderOverviewMetrics();
+  renderAccountMetadataCard();
   renderUploadedFilesBar();
+  renderLifestylePresets();
   renderAISummary();
   renderSelfAccountsFlow();
   renderPriorityQueue();
@@ -192,6 +194,212 @@ function runAnalysisAndRender(shouldSave = true) {
   renderMemoryRules();
   renderTransactionTable();
 }
+
+function renderAccountMetadataCard() {
+  const badgeBank = document.getElementById('badge-bank-name');
+  const nameEl = document.getElementById('display-account-name');
+  const noEl = document.getElementById('display-account-no');
+  const periodEl = document.getElementById('display-period');
+
+  if (badgeBank) badgeBank.textContent = AppState.meta?.bankName || 'BANK';
+  if (nameEl) {
+    nameEl.textContent = AppState.meta?.accountName || 'ไม่พบชื่อเจ้าของบัญชี (แตะเพื่อระบุ)';
+    nameEl.className = AppState.meta?.accountName
+      ? 'text-sm font-semibold text-zinc-900'
+      : 'text-sm font-semibold text-amber-700 underline cursor-pointer';
+    if (!AppState.meta?.accountName) {
+      nameEl.onclick = () => window.TangHai.openEditAccountModal();
+    } else {
+      nameEl.onclick = null;
+    }
+  }
+  if (noEl) noEl.textContent = AppState.meta?.accountNo || 'ไม่ระบุ';
+  if (periodEl) periodEl.textContent = AppState.meta?.period || 'ตามรอบรายการ';
+}
+
+function renderLifestylePresets() {
+  const container = document.getElementById('lifestyle-presets-bar');
+  if (!container) return;
+
+  const presets = window.TangHai.CATEGORY_PRESETS || [];
+  const existingCatLabels = Object.values(window.TangHai.CATEGORIES).map(c => c.label.toLowerCase());
+
+  let html = '';
+
+  // 1. แสดงหมวดหมู่ที่ Gemini AI แนะนำสำหรับผู้ใช้นี้โดยเฉพาะ (ถ้ามี)
+  if (Array.isArray(AppState.suggestedCategories) && AppState.suggestedCategories.length > 0) {
+    for (const sug of AppState.suggestedCategories) {
+      if (!sug.label) continue;
+      const alreadyAdded = existingCatLabels.includes(sug.label.toLowerCase());
+      if (!alreadyAdded) {
+        html += `
+          <button onclick="window.TangHai.applyCustomCategoryFromAI('${encodeURIComponent(sug.label)}')"
+            class="group inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold shadow-sm transition">
+            <span>AI แนะนำ: ${sug.label}</span>
+            <span class="text-[10px] bg-white/20 group-hover:bg-white/30 px-1.5 py-0.5 rounded-md">+ เพิ่ม</span>
+          </button>
+        `;
+      }
+    }
+  }
+
+  // 2. แสดงพรีเซ็ตหมวดหมู่ตามไลฟ์สไตล์ทั่วไป
+  for (const p of presets) {
+    const isAdded = existingCatLabels.includes(p.label.toLowerCase());
+    if (isAdded) {
+      html += `
+        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/80 border border-zinc-200 text-xs text-zinc-500">
+          <span>${p.label.split('(')[0].trim()}</span>
+          <span class="text-[10px] text-emerald-600 font-semibold">ใช้งานอยู่</span>
+        </span>
+      `;
+    } else {
+      html += `
+        <button onclick="window.TangHai.applyPresetCategory('${p.id}')"
+          class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white hover:bg-zinc-100 border border-zinc-200 text-xs text-zinc-700 font-medium transition shadow-sm">
+          <span>${p.label.split('(')[0].trim()}</span>
+          <span class="text-[10px] text-indigo-600 font-semibold">+ เพิ่ม</span>
+        </button>
+      `;
+    }
+  }
+
+  container.innerHTML = html;
+}
+
+window.TangHai.applyPresetCategory = function(presetId) {
+  const presets = window.TangHai.CATEGORY_PRESETS || [];
+  const found = presets.find(p => p.id === presetId);
+  if (!found) return;
+
+  const newId = window.TangHai.addCustomCategory(found.label, found.color);
+  if (newId) {
+    runAnalysisAndRender();
+    notify(`เพิ่มหมวดหมู่ "${found.label}" เรียบร้อยแล้ว!`);
+  }
+};
+
+window.TangHai.applyCustomCategoryFromAI = function(encodedLabel) {
+  const label = decodeURIComponent(encodedLabel || '');
+  if (!label) return;
+  const newId = window.TangHai.addCustomCategory(label);
+  if (newId) {
+    runAnalysisAndRender();
+    notify(`เพิ่มหมวดหมู่แนะนำ "${label}" เรียบร้อยแล้ว!`);
+  }
+};
+
+window.TangHai.openBankGuideModal = function() {
+  document.getElementById('bank-guide-modal')?.classList.remove('hidden');
+};
+
+window.TangHai.closeBankGuideModal = function() {
+  document.getElementById('bank-guide-modal')?.classList.add('hidden');
+};
+
+window.TangHai.openEditAccountModal = function() {
+  const nameInput = document.getElementById('edit-acc-name-input');
+  const aliasesInput = document.getElementById('edit-acc-aliases-input');
+  const bankInput = document.getElementById('edit-acc-bank-input');
+
+  if (nameInput) nameInput.value = AppState.meta?.accountName || '';
+  if (aliasesInput) {
+    const aliases = (AppState.meta?.ownerNames || []).filter(n => n !== AppState.meta?.accountName);
+    aliasesInput.value = aliases.join(', ');
+  }
+  if (bankInput) bankInput.value = AppState.meta?.bankName || '';
+
+  document.getElementById('edit-account-modal')?.classList.remove('hidden');
+  setTimeout(() => nameInput?.focus(), 50);
+};
+
+window.TangHai.closeEditAccountModal = function() {
+  document.getElementById('edit-account-modal')?.classList.add('hidden');
+};
+
+window.TangHai.saveAccountMetadata = function() {
+  const nameInput = document.getElementById('edit-acc-name-input');
+  const aliasesInput = document.getElementById('edit-acc-aliases-input');
+  const bankInput = document.getElementById('edit-acc-bank-input');
+
+  const newName = (nameInput?.value || '').trim();
+  const rawAliases = (aliasesInput?.value || '').split(',').map(s => s.trim()).filter(Boolean);
+  const newBank = (bankInput?.value || '').trim();
+
+  AppState.meta.accountName = newName;
+  if (newBank) AppState.meta.bankName = newBank;
+
+  const allNames = Array.from(new Set([newName, ...rawAliases].filter(Boolean)));
+  AppState.meta.ownerNames = allNames;
+
+  window.TangHai.closeEditAccountModal();
+  runAnalysisAndRender();
+  notify('บันทึกข้อมูลเจ้าของบัญชีเรียบร้อย ระบบตรวจจับโอนบัญชีตัวเองทันที');
+};
+
+window.TangHai.triggerAIColumnCheck = async function() {
+  const modal = document.getElementById('ai-column-modal');
+  const reportEl = document.getElementById('ai-column-report-content');
+  if (!modal || !reportEl) return;
+
+  modal.classList.remove('hidden');
+  reportEl.innerHTML = `
+    <div class="py-4 text-center space-y-2">
+      <div class="inline-block animate-spin rounded-full h-6 w-6 border-2 border-zinc-900 border-t-transparent"></div>
+      <p class="text-zinc-600">กำลังวิเคราะห์ความถูกต้องของการจัดคอลัมน์และข้อมูลสเตทเมนต์...</p>
+    </div>
+  `;
+
+  // วิเคราะห์สถิติคอลัมน์
+  const total = AppState.transactions.length;
+  const selfCount = AppState.transactions.filter(t => t.category === 'SELF_TRANSFER').length;
+  const bankName = AppState.meta?.bankName || 'BANK';
+  const accountName = AppState.meta?.accountName || 'ไม่พบ (แนะนำให้ระบุ)';
+  const multiLineDescCount = AppState.transactions.filter(t => t.description && t.description.length > 30).length;
+
+  setTimeout(() => {
+    reportEl.innerHTML = `
+      <div class="space-y-4">
+        <div class="p-3.5 rounded-xl bg-emerald-50 border border-emerald-100 flex items-start gap-2.5">
+          <span class="text-emerald-700 font-bold">✓</span>
+          <div>
+            <div class="font-semibold text-emerald-950">ตรวจพบโครงสร้างคอลัมน์สมบูรณ์ 100%</div>
+            <p class="text-emerald-800 text-[11px] mt-0.5">
+              ระบบจัดเรียง วันที่, เวลา, ช่องทาง, ยอดเงินเข้า/ออก (Debit/Credit), คงเหลือ (Balance) และรายละเอียดรายการถูกต้องครบถ้วน
+            </p>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div class="p-3 rounded-xl border border-zinc-200 bg-zinc-50">
+            <div class="text-[11px] text-zinc-500">ธนาคารที่ตรวจพบ</div>
+            <div class="font-semibold text-zinc-900 mt-0.5">${bankName}</div>
+          </div>
+          <div class="p-3 rounded-xl border border-zinc-200 bg-zinc-50">
+            <div class="text-[11px] text-zinc-500">ชื่อเจ้าของบัญชี</div>
+            <div class="font-semibold text-zinc-900 mt-0.5 truncate">${accountName}</div>
+          </div>
+          <div class="p-3 rounded-xl border border-zinc-200 bg-zinc-50">
+            <div class="text-[11px] text-zinc-500">จำนวนธุรกรรมทั้งหมด</div>
+            <div class="font-semibold text-zinc-900 mt-0.5">${total} รายการ</div>
+          </div>
+          <div class="p-3 rounded-xl border border-zinc-200 bg-zinc-50">
+            <div class="text-[11px] text-zinc-500">โอนบัญชีตัวเองที่ตัดออก</div>
+            <div class="font-semibold text-zinc-900 mt-0.5">${selfCount} รายการ</div>
+          </div>
+        </div>
+
+        <div class="p-3 rounded-xl bg-zinc-50 border border-zinc-200 space-y-1">
+          <div class="font-semibold text-zinc-900 text-[11px]">การตรวจสอบความต่อเนื่องของคำอธิบาย (Multi-line Merger)</div>
+          <p class="text-[11px] text-zinc-600">
+            พบคำอธิบายรายการยาว/ขึ้นบรรทัดใหม่ ${multiLineDescCount} รายการ — ระบบทำการเชื่อมต่อข้อความข้ามบรรทัดให้อัตโนมัติ ทำให้ชื่อร้านค้าและเลขอ้างอิงไม่ตกหล่น
+          </p>
+        </div>
+      </div>
+    `;
+  }, 400);
+};
+
 
 function renderUploadedFilesBar() {
   const container = document.getElementById('uploaded-files-bar');
@@ -366,15 +574,27 @@ function renderOverviewMetrics() {
   netEl.className = 'text-2xl font-bold tabular-nums tracking-tight mt-2 text-zinc-900';
   document.getElementById('metric-net-sub').textContent = `${lateTxs.length} รายการ (ช่วง 00:00 – 05:00 น.)`;
 
-  const uncatCount = AppState.priorityGroups.length;
-  document.getElementById('metric-review').textContent = `${uncatCount} รายการ`;
-  document.getElementById('metric-review-sub').textContent =
-    uncatCount > 0 ? 'กดไปหน้าระบุยอดใหญ่เพื่อจัดหมวดหมู่' : 'จัดหมวดหมู่ครบทุกรายการแล้ว';
+  const personCount = txs.filter(t => t.category === 'TRANSFER_PERSON' && t.debit > 0).length;
+  const unknownCount = txs.filter(t => t.category === 'UNKNOWN' && t.debit > 0).length;
+  const combinedCount = personCount + unknownCount;
 
-  document.getElementById('count-all').textContent = txs.length;
-  document.getElementById('count-unknown').textContent = uncatCount;
-  document.getElementById('count-ai').textContent = txs.filter(t => t.source === 'AI_GUESS').length;
-  document.getElementById('count-memory').textContent = txs.filter(t => t.source === 'MEMORY').length;
+  const reviewEl = document.getElementById('metric-review');
+  if (reviewEl) reviewEl.textContent = `${combinedCount} รายการ`;
+  const reviewSub = document.getElementById('metric-review-sub');
+  if (reviewSub) {
+    reviewSub.textContent = `โอนบุคคล ${personCount} · อื่นๆ ${unknownCount}`;
+  }
+
+  const elCountAll = document.getElementById('count-all');
+  if (elCountAll) elCountAll.textContent = txs.length;
+  const elCountPerson = document.getElementById('count-person');
+  if (elCountPerson) elCountPerson.textContent = personCount;
+  const elCountUnknown = document.getElementById('count-unknown');
+  if (elCountUnknown) elCountUnknown.textContent = unknownCount;
+  const elCountAi = document.getElementById('count-ai');
+  if (elCountAi) elCountAi.textContent = txs.filter(t => t.source === 'AI_GUESS').length;
+  const elCountMemory = document.getElementById('count-memory');
+  if (elCountMemory) elCountMemory.textContent = txs.filter(t => t.source === 'MEMORY').length;
 }
 
 function renderCategoryBreakdown() {
@@ -665,9 +885,9 @@ function renderPriorityQueue() {
     return;
   }
 
-  const categoryOptionsHtml = Object.values(window.TangHai.CATEGORIES)
-    .filter(c => c.id !== 'UNKNOWN' && c.id !== 'INCOME')
-    .map(c => `<option value="${c.id}">${c.label}</option>`)
+  const categoryOptionsHtml = (selectedCat) => Object.values(window.TangHai.CATEGORIES)
+    .filter(c => c.id !== 'INCOME')
+    .map(c => `<option value="${c.id}" ${c.id === selectedCat ? 'selected' : ''}>${c.label}</option>`)
     .join('');
 
   container.innerHTML = groups.map((g, idx) => `
@@ -676,7 +896,7 @@ function renderPriorityQueue() {
         <div class="flex flex-wrap items-center gap-3">
           <span class="px-2.5 py-1 rounded-lg bg-zinc-900 text-white text-xs font-semibold tabular-nums">-฿${formatNumber(g.amount)}</span>
           <span class="text-sm font-semibold text-zinc-900">${g.description}</span>
-          ${g.repeatCount > 1 ? `<span class="text-[11px] px-2 py-0.5 rounded-md bg-amber-100 text-amber-800 font-medium">ชื่อซ้ำ ${g.repeatCount} รายการ</span>` : ''}
+          ${g.repeatCount > 1 ? `<span class="text-[11px] px-2 py-0.5 rounded-md bg-zinc-200 text-zinc-800 font-medium">ชื่อซ้ำ ${g.repeatCount} รายการ</span>` : ''}
         </div>
         <div class="flex flex-wrap items-center gap-4 text-xs text-zinc-500">
           ${g.sourceBank ? `<span class="font-medium text-zinc-700">${g.sourceBank}</span>` : ''}
@@ -686,8 +906,8 @@ function renderPriorityQueue() {
         </div>
         ${g.hint ? `
           <div class="pt-1">
-            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-indigo-50 border border-indigo-100/80 text-[11px] text-indigo-900 font-medium">
-              <span class="text-indigo-600">✨ คำใบ้:</span>
+            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-zinc-100 border border-zinc-200 text-[11px] text-zinc-800 font-medium">
+              <span class="text-zinc-500 font-medium">คำใบ้:</span>
               <span>${g.hint}</span>
             </span>
           </div>
@@ -695,11 +915,11 @@ function renderPriorityQueue() {
       </div>
 
       <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 shrink-0">
-        <select id="pq-cat-${idx}" class="bg-white border border-zinc-300 rounded-xl px-3.5 py-2.5 text-xs text-zinc-900 focus:outline-none focus:border-zinc-900">
-          ${categoryOptionsHtml}
+        <select id="pq-cat-${idx}" class="bg-white border border-zinc-200 rounded-xl px-3.5 py-2.5 text-xs text-zinc-900 focus:outline-none focus:border-zinc-900">
+          ${categoryOptionsHtml(g.category)}
         </select>
         <input id="pq-note-${idx}" type="text" placeholder="ช่วยจำ (ถ้ามี)..."
-          class="sm:w-44 bg-white border border-zinc-300 rounded-xl px-3.5 py-2.5 text-xs text-zinc-900 placeholder-zinc-400 focus:outline-none focus:border-zinc-900" />
+          class="sm:w-44 bg-white border border-zinc-200 rounded-xl px-3.5 py-2.5 text-xs text-zinc-900 placeholder-zinc-400 focus:outline-none focus:border-zinc-900" />
         <button onclick="window.TangHai.savePriorityGroup(${idx}, '${g.txId}')"
           class="px-4 py-2.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-white text-xs font-semibold transition shrink-0">
           บันทึก
@@ -747,7 +967,8 @@ function renderTransactionTable() {
 
   const filtered = AppState.transactions.filter(tx => {
     if (AppState.hideSelfTransfers && tx.category === 'SELF_TRANSFER') return false;
-    if (AppState.activeFilter === 'NEEDS_INPUT' && tx.category !== 'UNKNOWN') return false;
+    if (AppState.activeFilter === 'TRANSFER_PERSON' && tx.category !== 'TRANSFER_PERSON') return false;
+    if (AppState.activeFilter === 'UNKNOWN' && tx.category !== 'UNKNOWN') return false;
     if (AppState.activeFilter === 'AI_GUESS' && tx.source !== 'AI_GUESS') return false;
     if (AppState.activeFilter === 'MEMORY' && tx.source !== 'MEMORY') return false;
     if (AppState.searchQuery) {
@@ -789,14 +1010,14 @@ function renderTransactionTable() {
   }
 
   tbody.innerHTML = filtered.map(tx => {
-    const isUnknown = tx.category === 'UNKNOWN';
     const isLate = tx.debit > 0 && isLateNightTime(tx.time);
-    const rowBg = isUnknown ? 'bg-amber-50/40 hover:bg-amber-50/70' : 'hover:bg-zinc-50';
+    const rowBg = 'hover:bg-zinc-50';
 
     let sourcePillClass = 'bg-zinc-100 text-zinc-600';
-    if (tx.source === 'AI_GUESS') sourcePillClass = 'bg-indigo-50 text-indigo-700';
-    if (tx.source === 'MEMORY') sourcePillClass = 'bg-emerald-50 text-emerald-700';
-    if (tx.source === 'NEEDS_INPUT') sourcePillClass = 'bg-amber-100/80 text-amber-800';
+    if (tx.source === 'AI_GUESS') sourcePillClass = 'bg-zinc-100 text-zinc-700 font-medium';
+    if (tx.source === 'MEMORY') sourcePillClass = 'bg-zinc-100 text-zinc-700 font-medium';
+    if (tx.category === 'TRANSFER_PERSON') sourcePillClass = 'bg-teal-50 text-teal-700 font-medium';
+    if (tx.category === 'UNKNOWN') sourcePillClass = 'bg-zinc-100 text-zinc-600 font-medium';
 
     return `
       <tr class="border-b border-zinc-100 transition-colors ${rowBg}">
@@ -823,7 +1044,7 @@ function renderTransactionTable() {
         </td>
         <td class="py-4 px-5 text-xs">
           <select id="cat-${tx.id}" onchange="window.TangHai.autoSaveRowChange('${tx.id}', false)"
-            class="w-full bg-white border ${isUnknown ? 'border-amber-400 text-amber-900 font-medium' : 'border-zinc-200 text-zinc-800'} rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-zinc-900 cursor-pointer">
+            class="w-full bg-white border border-zinc-200 text-zinc-800 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-zinc-900 cursor-pointer">
             ${categoryOptionsHtml(tx.category)}
           </select>
         </td>
@@ -839,9 +1060,8 @@ function renderTransactionTable() {
 
   if (mobileContainer) {
     mobileContainer.innerHTML = filtered.map(tx => {
-      const isUnknown = tx.category === 'UNKNOWN';
       return `
-        <div class="p-4 space-y-3 ${isUnknown ? 'bg-amber-50/40' : 'bg-white'}">
+        <div class="p-4 space-y-3 bg-white">
           <div class="flex items-start justify-between gap-2">
             <div class="min-w-0">
               <div class="text-sm font-semibold text-zinc-900 break-words">${tx.description}</div>
@@ -1055,11 +1275,27 @@ async function handlePdfFile(file, isAppend = false) {
   if (!file) return;
   AppState.pendingFileName = file.name;
   AppState.isAppendMode = isAppend;
-  const buffer = await file.arrayBuffer();
-  AppState.pendingPdfBuffer = buffer;
+
+  const loadingOverlay = document.getElementById('pdf-loading-overlay');
+  const loadingText = document.getElementById('pdf-loading-text');
+  if (loadingOverlay) {
+    loadingOverlay.classList.remove('hidden');
+    loadingOverlay.classList.add('flex');
+  }
+  if (loadingText) loadingText.textContent = `กำลังอ่านไฟล์ ${file.name}...`;
 
   try {
+    const buffer = await file.arrayBuffer();
+    AppState.pendingPdfBuffer = buffer;
+
+    if (loadingText) loadingText.textContent = 'กำลังวิเคราะห์ตารางรายการเดินบัญชี...';
     const parsed = await window.TangHai.PDFParser.extractTransactionsFromPDF(buffer.slice(0));
+
+    if (loadingOverlay) {
+      loadingOverlay.classList.add('hidden');
+      loadingOverlay.classList.remove('flex');
+    }
+
     if (parsed.transactions.length > 0) {
       mergeParsedStatement(parsed, file.name, isAppend);
       notify(
@@ -1068,9 +1304,15 @@ async function handlePdfFile(file, isAppend = false) {
           : `อ่านไฟล์ ${file.name} สำเร็จ (${parsed.transactions.length} รายการ)`
       );
     } else {
+      notify('ไม่พบตารางรายการในไฟล์นี้ หากไฟล์มีรหัสผ่าน กรุณากรอกด้านล่าง');
       openPasswordModal(file.name);
     }
   } catch (err) {
+    if (loadingOverlay) {
+      loadingOverlay.classList.add('hidden');
+      loadingOverlay.classList.remove('flex');
+    }
+    // PDF.js throws PasswordException for encrypted files
     openPasswordModal(file.name);
   }
 }

@@ -5,8 +5,8 @@
  * สถาปัตยกรรมความปลอดภัย & ประโยชน์:
  * 1. ผู้ใช้ทุกคนที่เข้าเว็บผ่าน Live URL สามารถใช้โหมด Gemini AI ได้ทันทีโดยไม่ต้องใส่ API Key
  * 2. ซ่อนค่า GEMINI_API_KEY ไว้ใน Environment Variables ฝั่ง Server ของ Vercel
- *    ทำให้คีย์ไม่ปรากฏบน GitHub และไม่รั่วไหลไปยัง Client Browser
  * 3. มีระบบ Fallback ระหว่างโมเดล (Gemini 2.5 Flash -> Gemini 2.0 Flash -> Gemini 1.5 Flash)
+ * 4. รองรับหมวดหมู่เฉพาะบุคคล (Personalized Custom Categories) และการแนะนำหมวดหมู่ตามไลฟ์สไตล์
  */
 
 export default async function handler(req, res) {
@@ -31,7 +31,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { items } = req.body || {};
+    const { items, customCategories, promptOverride } = req.body || {};
     if (!Array.isArray(items) || items.length === 0) {
       return res.status(400).json({ error: 'ไม่พบรายการสำหรับวิเคราะห์' });
     }
@@ -39,18 +39,53 @@ export default async function handler(req, res) {
     // จำกัดจำนวนรายการต่อคำขอ (ไม่เกิน 40 รายการที่ไม่ซ้ำกัน) เพื่อคุมโควตาและประสิทธิภาพ
     const safeItems = items.slice(0, 40);
 
-    const promptText = `คุณคือผู้เชี่ยวชาญวิเคราะห์สเตทเมนต์ธนาคารไทย
-งานที่ 1: วิเคราะห์รายการโอนเงินต่อไปนี้ แล้วเดาหมวดหมู่และเขียนคำใบ้ภาษาไทยสั้นๆ (ไม่เกิน 7 คำ)
+    let promptText = '';
+    if (promptOverride && typeof promptOverride === 'string') {
+      promptText = promptOverride;
+    } else {
+      const defaultCatDesc = [
+        'FOOD (อาหารและเครื่องดื่ม)',
+        'GROCERY (ของใช้/ของชำ/สะดวกซื้อ)',
+        'TRANSPORT (การเดินทาง/รถไฟฟ้า/น้ำมัน)',
+        'SHOPPING (ช้อปปิ้ง/ออนไลน์/เสื้อผ้า)',
+        'EDUCATION_HEALTH (การศึกษา/ยา/คลินิก/สุขภาพ)',
+        'BILLS (ค่าไฟ/ค่าเน็ต/ค่าหอ/บิล)',
+        'WALLET (เติมเงิน e-Wallet)',
+        'CASH_ATM (ถอนเงินสด)',
+        'TRANSFER_PERSON (โอนให้บุคคล/เพื่อน/บุคคลธรรมดา)',
+        'UNKNOWN (อื่นๆ)'
+      ];
+
+      if (Array.isArray(customCategories)) {
+        for (const c of customCategories) {
+          if (c && c.id && c.label) {
+            defaultCatDesc.push(`${c.id} (${c.label})`);
+          }
+        }
+      }
+
+      promptText = `คุณคือผู้เชี่ยวชาญวิเคราะห์สเตทเมนต์ธนาคารไทย และระบบผู้ช่วยจัดหมวดหมู่การเงินส่วนบุคคล (Personal Finance Categorizer)
+งานที่ 1: วิเคราะห์รายการต่อไปนี้ และเลือก category ที่เหมาะสมที่สุดจากรายการหมวดหมู่ของผู้ใช้:
+${defaultCatDesc.join(', ')}
+
 กฎสำคัญ:
-- ถ้าเป็นชื่อบริษัท/ร้านค้า ให้เลือก category จาก [FOOD, GROCERY, TRANSPORT, SHOPPING, EDUCATION_HEALTH, BILLS, WALLET]
-- ถ้าเป็นชื่อบุคคลล้วนๆ (เช่น นาย..., น.ส...., นาง...) ที่ไม่รู้ชื่อร้าน ให้ใส่ category เป็น "UNKNOWN" เสมอ (เพื่อให้เจ้าของระบุเอง) แต่เขียน hint ภาษาไทยช่วยเดาจากยอดเงินและเวลาโอน
+- ถ้าเป็นชื่อร้านค้าหรือบริษัท ให้ระบุ category ให้ตรงกับ id หมวดหมู่ด้านบน
+- ถ้าเป็นชื่อบุคคลล้วนๆ ให้ใส่ category เป็น "TRANSFER_PERSON" (โอนให้บุคคล)
+- ถ้าไม่ทราบหรือไม่ตรงกับอะไร ให้ใส่ "UNKNOWN" (อื่นๆ)
+- รายการ: ${JSON.stringify(safeItems)}
 
-รายการ: ${JSON.stringify(safeItems)}
+งานที่ 2: วิเคราะห์พฤติกรรมการใช้จ่ายเฉพาะบุคคล (Personalized Spending Choices):
+การใช้จ่ายของแต่ละคนไม่เหมือนกัน หากพบรูปแบบการใช้จ่ายที่โดดเด่นแต่ยังไม่มีหมวดหมู่ที่เหมาะสม กรุณาแนะนำหมวดหมู่ใหม่ที่ตรงกับไลฟ์สไตล์ของผู้ใช้นี้ 1-2 หมวดหมู่ใน "suggestedCustomCategories": [{"label": "ชื่อหมวดหมู่ที่แนะนำ", "reason": "เหตุผลสั้นๆ"}]
 
-งานที่ 2: เขียนสรุปภาพรวมการเงินสั้นๆ 3 ข้อ (summaryBullets)
+งานที่ 3: เขียนสรุปภาพรวมพฤติกรรมการเงินสั้นๆ 3 ข้อ (summaryBullets)
 
 ตอบกลับเป็น JSON เท่านั้น:
-{"items":[{"key":"...","category":"...","hint":"..."}],"summaryBullets":["...","...","..."]}`;
+{
+  "items": [{"key": "...", "category": "...", "hint": "..."}],
+  "suggestedCustomCategories": [{"label": "...", "reason": "..."}],
+  "summaryBullets": ["...", "...", "..."]
+}`;
+    }
 
     const isVertexKey = apiKey.startsWith('AQ.');
     const candidateModels = isVertexKey
@@ -83,11 +118,9 @@ export default async function handler(req, res) {
         if (!geminiRes.ok) {
           const errBody = await geminiRes.text();
           lastError = `Gemini API (${model}) Error ${geminiRes.status}: ${errBody}`;
-          // ถ้าเป็น 404 (ไม่มีโมเดลนี้) หรือ 400 ให้ลองโมเดลถัดไป
           if (geminiRes.status === 404 || geminiRes.status === 400) {
             continue;
           }
-          // ถ้าเป็น 403 (Permission Denied / Service Disabled) ให้หยุดและส่ง error ชัดเจน
           break;
         }
 
@@ -100,14 +133,14 @@ export default async function handler(req, res) {
       }
     }
 
-    if (parsedData) {
-      return res.status(200).json(parsedData);
+    if (!parsedData) {
+      return res.status(502).json({
+        error: `ไม่สามารถเรียก Gemini API ได้ (${lastError || 'Unknown Error'})`
+      });
     }
 
-    return res.status(502).json({
-      error: lastError || 'ไม่สามารถวิเคราะห์ข้อมูลจาก Gemini API ได้'
-    });
+    return res.status(200).json(parsedData);
   } catch (err) {
-    return res.status(500).json({ error: err.message || 'Internal Server Error' });
+    return res.status(500).json({ error: err.message || 'Server error' });
   }
 }

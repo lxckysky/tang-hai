@@ -8,7 +8,8 @@ window.TangHai = window.TangHai || {};
 const MERCHANT_AI_RULES = [
   {
     keywords: [
-      'MINOR FOOD', 'ไมเนอร์ ฟู้ด', 'อีสาน', 'แซ่บ', 'ข้าวยาย', 'ไส้กรอก',
+      'CPN SLY', 'เซ็นทรัลพัฒนา', 'ถุงเงิน', 'มณี SHOP', 'กินนี่ ฟู้ด', 'FOOD PATIO',
+      'PARABOLA SCI', 'MINOR FOOD', 'ไมเนอร์ ฟู้ด', 'อีสาน', 'แซ่บ', 'ข้าวยาย', 'ไส้กรอก',
       'ร้านเบอร์ 5', 'ร้านเบอร์สอง', 'ตึกจุล', 'ข้าวแกง', 'ป้ารี',
       'YI JIA MALA', 'MALA SUKI', '1592-KFC', 'KFC', 'WONGNAI',
       'อาหาร', 'กาแฟ', 'ชาบู', 'MK ', 'STARBUCKS', 'CAFE', 'FOOD', 'PIZZA',
@@ -41,16 +42,16 @@ const MERCHANT_AI_RULES = [
   },
   {
     keywords: [
-      'CHULALONGKORN UNIVERSITY BOOK', 'BOOK CE', 'MAKALIN CLINIC', 'CLINIC', 'HOSPITAL',
+      'KLONGLUANG PHARMACY', 'ร้านยา', 'CHULALONGKORN UNIVERSITY BOOK', 'BOOK CE', 'MAKALIN CLINIC', 'CLINIC', 'HOSPITAL',
       'PHARMACY', 'SE-ED', 'NAIIN', 'B2S', 'KINOKUNIYA', 'จุฬา', 'ธรรมศาสตร์', 'มหาวิทยาลัย',
-      'โรงพยาบาล', 'คลินิก', 'ศิริราช', 'จุฬาลงกรณ์', 'กรุงเทพ', 'รามา', 'BDMS', 'ร้านยา', 'ฟาสซิโน',
+      'โรงพยาบาล', 'คลินิก', 'ศิริราช', 'จุฬาลงกรณ์', 'กรุงเทพ', 'รามา', 'BDMS', 'ฟาสซิโน',
       'WATSONS', 'BOOTS'
     ],
     category: 'EDUCATION_HEALTH'
   },
   {
     keywords: [
-      'TIKTOK SHOP', 'OMISE', 'SHOPEE', 'LAZADA', 'ยูนิโคล่', 'UNIQLO', 'ยูอาร์เดอะ',
+      'TIKTOK SHOP', 'PIPO', 'UNIQLO', 'ยูนิโคล่', 'ซัมมิท ไพน์เฮ', 'OMISE', 'SHOPEE', 'LAZADA', 'ยูอาร์เดอะ',
       'PINEHURST', 'LIANLIAN', 'อัลติเมต', 'ZARA', 'H&M', 'MUJI', 'DECATHLON',
       'MR.DIY', 'MR DIY', 'HOMEPRO', 'CENTRAL', 'THE MALL', 'EVEANDBOY', 'BEAUTRIUM',
       'IKEA', 'APPLE.COM', 'STEAM', 'PLAYSTATION'
@@ -74,24 +75,72 @@ const MERCHANT_AI_RULES = [
   }
 ];
 
-function extractOwnerCoreNames(meta = {}) {
-  const names = new Set();
-  if (meta.accountName) {
-    const clean = meta.accountName.replace(/^(?:นาย|นางสาว|น\.ส\.|นาง)\s+/i, '').trim();
-    if (clean) names.add(clean);
-  }
-  if (Array.isArray(meta.ownerNames)) {
-    for (const n of meta.ownerNames) {
-      const clean = (n || '').replace(/^(?:นาย|นางสาว|น\.ส\.|นาง)\s+/i, '').trim();
-      if (clean) names.add(clean);
-    }
-  }
-  return Array.from(names);
+const TITLE_PREFIX_REGEX = /^(?:ด\.ญ\.|ด\.ช\.|เด็กหญิง|เด็กชาย|นาย|นางสาว|น\.ส\.|นาง|MR\.|MS\.|MRS\.|MISS)\s*/i;
+const PERSON_KEYWORD_REGEX = /(?:นาย|นางสาว|น\.ส\.|นาง|ด\.ช\.|ด\.ญ\.|เด็กชาย|เด็กหญิง|MR\.|MS\.|MRS\.|MISS|PromptPay|พร้อมเพย์|โอนไป|โอนให้|บุคคล)/i;
+const BUSINESS_KEYWORD_REGEX = /(?:บจก\.|จำกัด|หจก\.|บมจ\.|ห้างหุ้นส่วน|SHOP|STORE|CAFE|CLINIC|HOSPITAL|MARKET|FOOD|CO\.,?LTD|SERVICE|STATION)/i;
+const THAI_NAME_PATTERN = /[ก-๙]{2,}\s+[ก-๙]{2,}/;
+
+function isLikelyPersonalTransfer(desc = '') {
+  if (!desc) return false;
+  const clean = desc.trim();
+  if (BUSINESS_KEYWORD_REGEX.test(clean)) return false;
+  if (PERSON_KEYWORD_REGEX.test(clean)) return true;
+  const noAcct = clean.replace(/^[A-Z0-9\/\-]+\s*/i, '').replace(/x\d{4,}\s*/i, '').trim();
+  if (PERSON_KEYWORD_REGEX.test(noAcct) || THAI_NAME_PATTERN.test(noAcct)) return true;
+  return false;
 }
 
-function isMatchingOwnerName(desc = '', ownerNames = []) {
-  if (!desc || !ownerNames.length) return false;
-  return ownerNames.some(name => name.length >= 3 && desc.includes(name));
+function extractOwnerCoreNames(meta = {}) {
+  const names = new Set();
+  const tokens = new Set();
+
+  const addName = (raw) => {
+    if (!raw) return;
+    const clean = raw.replace(TITLE_PREFIX_REGEX, '').trim();
+    if (clean.length >= 3) {
+      names.add(clean);
+      const parts = clean.split(/\s+/);
+      if (parts[0] && parts[0].length >= 3) {
+        tokens.add(parts[0]); // First name เช่น ทอฝัน, ศาศวรรต
+      }
+      if (parts[1] && parts[1].length >= 3) {
+        tokens.add(parts[1]); // Full last name
+        if (parts[1].length >= 5) {
+          tokens.add(parts[1].substring(0, 5)); // สุทธิ, จิตรส
+        }
+      }
+    }
+  };
+
+  addName(meta.accountName);
+  if (Array.isArray(meta.ownerNames)) {
+    meta.ownerNames.forEach(addName);
+  }
+
+  return {
+    fullNames: Array.from(names),
+    nameTokens: Array.from(tokens),
+    namesArray: Array.from(names)
+  };
+}
+
+function isMatchingOwnerName(desc = '', ownerData = {}) {
+  if (!desc || !ownerData) return false;
+
+  if (Array.isArray(ownerData)) {
+    return ownerData.some(n => {
+      if (!n || n.length < 3) return false;
+      const clean = n.replace(TITLE_PREFIX_REGEX, '').trim();
+      const firstWord = clean.split(/\s+/)[0];
+      return desc.includes(n) || desc.includes(clean) || (firstWord && firstWord.length >= 3 && desc.includes(firstWord));
+    });
+  }
+
+  const fullNames = ownerData.fullNames || [];
+  const tokens = ownerData.nameTokens || [];
+
+  if (fullNames.some(n => desc.includes(n))) return true;
+  return tokens.some(t => t.length >= 3 && desc.includes(t));
 }
 
 const AI_CACHE_KEY = 'tanghai_gemini_cache_v1';
@@ -246,13 +295,21 @@ window.TangHai.Categorizer = {
           llmHint: geminiCached ? geminiCached.hint : '',
           needsReview: false
         };
+      } else if (isLikelyPersonalTransfer(merchantName)) {
+        batchResults[merchantName] = {
+          category: 'TRANSFER_PERSON',
+          source: 'RULE',
+          sourceLabel: 'โอนให้บุคคล',
+          llmHint: geminiCached ? geminiCached.hint : 'โอนให้บุคคล / พร้อมเพย์',
+          needsReview: false
+        };
       } else {
         batchResults[merchantName] = {
           category: 'UNKNOWN',
-          source: 'NEEDS_INPUT',
-          sourceLabel: 'รอระบุหมวดหมู่',
+          source: 'RULE',
+          sourceLabel: 'อื่นๆ',
           llmHint: geminiCached ? geminiCached.hint : '',
-          needsReview: true
+          needsReview: false
         };
       }
     }
@@ -280,6 +337,7 @@ window.TangHai.Categorizer = {
       aiSummaryBullets: this.buildAIMonthlySummary(finalTransactions),
       selfAccounts: this.summarizeSelfAccounts(finalTransactions, ownerNames),
       priorityGroups: this.buildPriorityUnknownGroups(finalTransactions),
+      suggestedCategories: aiCache.suggestedCategories || [],
       stats: {
         totalRows,
         memoryHits,
@@ -324,16 +382,35 @@ window.TangHai.Categorizer = {
     const aiCache = getAICache();
     const itemsToAsk = [];
     const seenKeys = new Set();
+    const ownerNames = extractOwnerCoreNames(window.TangHai.AppState?.meta || {});
 
     for (const tx of rawTransactions) {
+      // 1. ข้ามเงินเข้า
       if (tx.credit > 0 || tx.code === 'X1') continue;
-      const normKey = window.TangHai.MemoryStore.normalizeKey(tx.description);
+
+      const desc = tx.description || '';
+      // 2. ข้ามการโอนบัญชีตัวเอง
+      if (isMatchingOwnerName(desc, ownerNames)) continue;
+
+      // 3. ข้ามการกดเงินสด ATM
+      if (tx.channel === 'CDM' || desc.toUpperCase().includes('CARDLESS ATM')) continue;
+
+      const normKey = window.TangHai.MemoryStore.normalizeKey(desc);
       if (seenKeys.has(normKey)) continue;
 
+      // 4. ข้ามรายการที่จำได้จากสมุดจำ
+      if (window.TangHai.MemoryStore.findMatch(desc)) continue;
+
+      // 5. ข้ามรายการที่ตรงกับกฎร้านค้าพื้นฐานอยู่แล้ว
       const upper = normKey.toUpperCase();
       const matchedBasic = MERCHANT_AI_RULES.find(r => r.keywords.some(kw => upper.includes(kw.toUpperCase())));
+      if (matchedBasic) continue;
 
-      if (!matchedBasic && !aiCache.merchants[normKey]) {
+      // 6. ข้ามรายการที่เป็นชื่อบุคคลธรรมดา (ระบบจัดเป็นโอนให้บุคคลอยู่แล้ว)
+      if (isLikelyPersonalTransfer(normKey)) continue;
+
+      // ส่งให้ AI เฉพาะรายการที่ไม่รู้จักจริงๆ
+      if (!aiCache.merchants[normKey]) {
         seenKeys.add(normKey);
         itemsToAsk.push({
           key: normKey,
@@ -350,13 +427,15 @@ window.TangHai.Categorizer = {
 
     let parsed = null;
 
+    const customCats = window.TangHai.getCustomCategoriesList ? window.TangHai.getCustomCategoriesList() : [];
+
     // 1. ลองเรียกผ่าน Backend Serverless API (/api/gemini บน Vercel) ก่อน เพื่อให้ทุกคนใช้งานได้ทันทีโดยไม่ต้องกรอกคีย์
     if (window.location.protocol.startsWith('http')) {
       try {
         const serverRes = await fetch('/api/gemini', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ items: itemsToAsk })
+          body: JSON.stringify({ items: itemsToAsk, customCategories: customCats })
         });
         if (serverRes.ok) {
           parsed = await serverRes.json();
@@ -375,18 +454,35 @@ window.TangHai.Categorizer = {
         throw err;
       }
 
-      const promptText = `คุณคือผู้เชี่ยวชาญวิเคราะห์สเตทเมนต์ธนาคารไทย
-งานที่ 1: วิเคราะห์รายการโอนเงินต่อไปนี้ แล้วเดาหมวดหมู่และเขียนคำใบ้ภาษาไทยสั้นๆ (ไม่เกิน 7 คำ)
+      const availableCats = [
+        'FOOD (อาหารและเครื่องดื่ม)',
+        'GROCERY (ของใช้/ของชำ/สะดวกซื้อ)',
+        'TRANSPORT (การเดินทาง/รถไฟฟ้า/น้ำมัน)',
+        'SHOPPING (ช้อปปิ้ง/ออนไลน์/เสื้อผ้า)',
+        'EDUCATION_HEALTH (การศึกษา/ยา/คลินิก/สุขภาพ)',
+        'BILLS (ค่าไฟ/ค่าเน็ต/ค่าหอ/บิล)',
+        'WALLET (เติมเงิน e-Wallet)',
+        'CASH_ATM (ถอนเงินสด)',
+        'TRANSFER_PERSON (โอนให้บุคคล/เพื่อน/บุคคลธรรมดา)',
+        'UNKNOWN (อื่นๆ)',
+        ...customCats.map(c => `${c.id} (${c.label})`)
+      ];
+
+      const promptText = `คุณคือผู้เชี่ยวชาญวิเคราะห์สเตทเมนต์ธนาคารไทย และระบบผู้ช่วยจัดหมวดหมู่การเงินส่วนบุคคล
+งานที่ 1: วิเคราะห์รายการโอนเงินต่อไปนี้ แล้วเลือกหมวดหมู่ที่เหมาะสมจาก: [${availableCats.join(', ')}]
 กฎสำคัญ:
-- ถ้าเป็นชื่อบริษัท/ร้านค้า ให้เลือก category จาก [FOOD, GROCERY, TRANSPORT, SHOPPING, EDUCATION_HEALTH, BILLS, WALLET]
-- ถ้าเป็นชื่อบุคคลล้วนๆ (เช่น นาย..., น.ส...., นาง...) ที่ไม่รู้ชื่อร้าน ให้ใส่ category เป็น "UNKNOWN" เสมอ (เพื่อให้เจ้าของระบุเอง) แต่เขียน hint ภาษาไทยช่วยเดาจากยอดเงินและเวลาโอน
+- ถ้าเป็นชื่อร้านค้าหรือบริษัท ให้ระบุ category ให้ตรงกับ id หมวดหมู่ด้านบน
+- ถ้าเป็นชื่อบุคคลล้วนๆ ให้ใส่ category เป็น "TRANSFER_PERSON" และเขียน hint สั้นๆ (ไม่เกิน 7 คำ)
+- ถ้าไม่ตรงกับอะไรเลย ให้ใส่ "UNKNOWN"
+รายการ: ${JSON.stringify(itemsToAsk.slice(0, 40))}
 
-รายการ: ${JSON.stringify(itemsToAsk)}
+งานที่ 2: วิเคราะห์พฤติกรรมการใช้จ่ายเฉพาะบุคคล (Personalized Spending Choices):
+แนะนำหมวดหมู่ใหม่ที่ตรงใจ 1-2 หมวดหมู่ใน "suggestedCustomCategories": [{"label": "ชื่อหมวดหมู่ที่แนะนำ", "reason": "เหตุผลสั้นๆ"}]
 
-งานที่ 2: เขียนสรุปภาพรวมการเงินสั้นๆ 3 ข้อ (summaryBullets)
+งานที่ 3: สรุปภาพรวมพฤติกรรมการเงิน 3 ข้อ (summaryBullets)
 
 ตอบกลับเป็น JSON เท่านั้น:
-{"items":[{"key":"...","category":"...","hint":"..."}],"summaryBullets":["...","...","..."]}`;
+{"items":[{"key":"...","category":"...","hint":"..."}],"suggestedCustomCategories":[{"label":"...","reason":"..."}],"summaryBullets":["...","...","..."]}`;
 
       const isVertexKey = apiKey.startsWith('AQ.');
       const candidateModels = isVertexKey
@@ -459,6 +555,9 @@ window.TangHai.Categorizer = {
     if (Array.isArray(parsed?.summaryBullets) && parsed.summaryBullets.length > 0) {
       aiCache.summary = parsed.summaryBullets;
     }
+    if (Array.isArray(parsed?.suggestedCustomCategories)) {
+      aiCache.suggestedCategories = parsed.suggestedCustomCategories;
+    }
 
     saveAICache(aiCache);
     return { cached: false, count: itemsToAsk.length };
@@ -506,15 +605,15 @@ window.TangHai.Categorizer = {
    * พร้อมแนบคำใบ้ (Hint) จาก Gemini AI หรือ Smart Heuristic
    */
   buildPriorityUnknownGroups(transactions) {
-    const unknownTxs = transactions.filter(tx => tx.category === 'UNKNOWN' && tx.debit > 0);
+    const reviewTxs = transactions.filter(tx => (tx.category === 'UNKNOWN' || tx.category === 'TRANSFER_PERSON') && tx.debit > 0);
 
     const freqMap = {};
-    for (const tx of unknownTxs) {
+    for (const tx of reviewTxs) {
       const key = tx.normKey || window.TangHai.MemoryStore.normalizeKey(tx.description);
       freqMap[key] = (freqMap[key] || 0) + 1;
     }
 
-    return unknownTxs
+    return reviewTxs
       .map(tx => {
         const key = tx.normKey || window.TangHai.MemoryStore.normalizeKey(tx.description);
         return {
@@ -526,6 +625,7 @@ window.TangHai.Categorizer = {
           time: tx.time,
           channel: tx.channel || '',
           sourceBank: tx.sourceBank || '',
+          category: tx.category,
           repeatCount: freqMap[key] || 1,
           hint: tx.llmHint || this.generateSmartHint(tx)
         };
@@ -551,24 +651,34 @@ window.TangHai.Categorizer = {
       bullets.push(`รายการเติมเงิน Wallet รวม ${walletTxs.length} ครั้ง เป็นเงิน ฿${walletTotal.toLocaleString('th-TH', { minimumFractionDigits: 2 })} (${pct}% ของรายจ่ายจริง)`);
     }
 
+    const personTxs = debits.filter(t => t.category === 'TRANSFER_PERSON');
+    const personTotal = personTxs.reduce((s, t) => s + t.debit, 0);
+    if (personTxs.length > 0 && totalSpend > 0) {
+      const pct = Math.round((personTotal / totalSpend) * 100);
+      bullets.push(`โอนให้บุคคล รวม ${personTxs.length} ครั้ง เป็นเงิน ฿${personTotal.toLocaleString('th-TH', { minimumFractionDigits: 2 })} (${pct}% ของรายจ่ายจริง)`);
+    }
+
     const unknownTxs = debits.filter(t => t.category === 'UNKNOWN');
     const unknownTotal = unknownTxs.reduce((s, t) => s + t.debit, 0);
     if (unknownTxs.length > 0) {
-      bullets.push(`รายการรอระบุหมวดหมู่ ${unknownTxs.length} รายการ รวมเป็นเงิน ฿${unknownTotal.toLocaleString('th-TH', { minimumFractionDigits: 2 })}`);
+      bullets.push(`รายการหมวดอื่นๆ ${unknownTxs.length} รายการ รวมเป็นเงิน ฿${unknownTotal.toLocaleString('th-TH', { minimumFractionDigits: 2 })}`);
     } else if (totalSpend > 0) {
-      bullets.push(`จัดหมวดหมู่ครบทุกรายการ 100% เรียบร้อยแล้ว`);
+      bullets.push(`จัดหมวดหมู่ครบทุกรายการเรียบร้อยแล้ว`);
     }
 
     return bullets;
   },
 
-  summarizeSelfAccounts(transactions, ownerNames = []) {
+  summarizeSelfAccounts(transactions, ownerData = {}) {
     const map = {};
-    const namesArr = Array.isArray(ownerNames) ? ownerNames : [ownerNames].filter(Boolean);
+    // รองรับทั้ง format เก่า (Array) และ format ใหม่ (object)
+    const namesArr = Array.isArray(ownerData)
+      ? ownerData
+      : (ownerData.namesArray || ownerData.fullNames || []);
 
     for (const tx of transactions) {
       const desc = tx.description || '';
-      const isSelfByName = isMatchingOwnerName(desc, namesArr);
+      const isSelfByName = isMatchingOwnerName(desc, ownerData);
       const isSelfCategory = tx.category === 'SELF_TRANSFER';
 
       if (!isSelfByName && !isSelfCategory) continue;
