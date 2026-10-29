@@ -557,11 +557,16 @@ function renderOverviewMetrics() {
   document.getElementById('file-meta-sub').textContent =
     [AppState.meta.bankName || '', `${txs.length} รายการ`].filter(Boolean).join('  ·  ');
 
-  document.getElementById('metric-income').textContent = `฿${formatNumber(totalExpense)}`;
-  document.getElementById('metric-income-sub').textContent = `เงินโอนเข้า +฿${formatNumber(totalIncome)}`;
+  const incomeTxs = txs.filter(t => (t.credit || 0) > 0);
+  document.getElementById('metric-income').textContent = `+฿${formatNumber(totalIncome)}`;
+  document.getElementById('metric-income-sub').textContent = `${incomeTxs.length} รายการเงินเข้า  ·  ยอดเงินออกหน้าสเตทเมนต์ ฿${formatNumber(totalExpense)}`;
 
   document.getElementById('metric-expense').textContent = `฿${formatNumber(truePersonalSpend)}`;
-  document.getElementById('metric-expense-sub').textContent = `ไม่รวมโอนบัญชีตัวเอง ฿${formatNumber(selfAndPassTotal)}`;
+  if (selfAndPassTotal > 0) {
+    document.getElementById('metric-expense-sub').textContent = `หักโอนบัญชีตัวเอง ฿${formatNumber(selfAndPassTotal)} (ยอดเงินออกทั้งหมด ฿${formatNumber(totalExpense)})`;
+  } else {
+    document.getElementById('metric-expense-sub').textContent = `ไม่รวมโอนบัญชีตัวเอง ฿0.00 (ยอดเงินออกทั้งหมด ฿${formatNumber(totalExpense)})`;
+  }
 
   const netEl = document.getElementById('metric-net');
   netEl.textContent = `฿${formatNumber(lateTotal)}`;
