@@ -38,7 +38,11 @@ const MERCHANT_AI_RULES = [
       'เอ็มอาร์ที', 'MRT', 'ทางด่วนและรถไฟฟ้า', 'BTS', 'BEM',
       'ARL', 'SRTET', 'รถไฟฟ้า', 'ทางด่วน', 'EXAT', 'EASY PASS', 'M-FLOW', 'TOLLWAY',
       'GRABTAXI', 'BOLT', 'PTT', 'OR OIL', 'CALTEX', 'SHELL', 'BANGCHAK', 'บางจาก',
-      'SUSCO', 'PEA VOLTA', 'EV CHARGE', 'LINE MAN RIDE', 'วิน', 'แท็กซี่', 'TAXI', 'น้ำมัน'
+      'SUSCO', 'PEA VOLTA', 'EV CHARGE', 'LINE MAN RIDE', 'วิน', 'แท็กซี่', 'TAXI', 'น้ำมัน',
+      // เพิ่ม: ปั๊มน้ำมัน ภาษาไทย / ชื่อย่อ
+      'ปตท', 'พีทีที', 'PTT STATION', 'RITTIDOL OIL', 'ESSO', 'ESTACIÓN',
+      'น้ำมันงาม', 'OIL LTD', 'OIL PART', 'สถานีน้ำมัน', 'ปั๊มน้ำมัน',
+      'GAS STATION', 'FUEL', 'PETROLEUM'
     ],
     category: 'TRANSPORT'
   },
@@ -65,7 +69,10 @@ const MERCHANT_AI_RULES = [
       'METROPOLITAN ELECTRICITY', 'การไฟฟ้า', 'PEA', 'MEA', 'ประปา', 'MWA', 'PWA',
       'AIS POSTPAID', 'AIS FIBRE', 'TRUE MOVE', 'TRUE ONLINE', 'DTAC', '3BB',
       'NT BROADBAND', 'NETFLIX', 'SPOTIFY', 'YOUTUBE', 'GOOGLE STORAGE', 'ICLOUD',
-      'เดอะเรสซิเดนซ์', 'เรสซิเดนซ์', 'RESIDENCE', 'หอพัก', 'อพาร์ตเมนต์', 'คอนโด', 'ค่าเช่า', 'ส่วนกลาง', 'APARTMENT', 'CONDO'
+      'เดอะเรสซิเดนซ์', 'เรสซิเดนซ์', 'RESIDENCE', 'หอพัก', 'อพาร์ตเมนต์', 'คอนโด', 'ค่าเช่า', 'ส่วนกลาง', 'APARTMENT', 'CONDO',
+      // เพิ่ม: นิติบุคคลอาคารชุด / หมู่บ้าน
+      'นิติบุคคล', 'อาคารชุด', 'นิติบุคคลอาคาร', 'JURISTIC', 'VILLAGE', 'ESTATE',
+      'ค่าน้ำ', 'ค่าไฟ', 'ค่าส่วนกลาง', 'ค่าบริการ', 'ค่าเน็ต', 'ค่าโทรศัพท์'
     ],
     category: 'BILLS'
   },
@@ -80,16 +87,23 @@ const MERCHANT_AI_RULES = [
 
 const TITLE_PREFIX_REGEX = /^(?:ด\.ญ\.|ด\.ช\.|เด็กหญิง|เด็กชาย|นาย|นางสาว|น\.ส\.|นาง|MR\.|MS\.|MRS\.|MISS)\s*/i;
 const PERSON_KEYWORD_REGEX = /(?:นาย|นางสาว|น\.ส\.|นาง|ด\.ช\.|ด\.ญ\.|เด็กชาย|เด็กหญิง|MR\.|MS\.|MRS\.|MISS|PromptPay|พร้อมเพย์|โอนไป|โอนให้|บุคคล)/i;
-const BUSINESS_KEYWORD_REGEX = /(?:บจก\.|จำกัด|หจก\.|บมจ\.|ห้างหุ้นส่วน|SHOP|STORE|CAFE|CLINIC|HOSPITAL|MARKET|FOOD|CO\.,?LTD|SERVICE|STATION)/i;
+// คำที่บ่งชี้ว่าเป็นร้านค้า/นิติบุคคล ไม่ใช่บุคคลธรรมดา
+const BUSINESS_KEYWORD_REGEX = /(?:บจก\.|จำกัด|หจก\.|บมจ\.|ห้างหุ้นส่วน|SHOP|STORE|CAFE|CLINIC|HOSPITAL|MARKET|FOOD|CO\.?,?LTD|SERVICE|STATION|จ่ายบิล|PAY BILL|BILL PAY|นิติบุคคล|อาคารชุด|ร้าน|สาขา|BRANCH|PART\.|LTD\.|PLC\.|INC\.|CORP|ฮับ|HUB|RAMEN|ราเมน|ปตท|PTT|น้ำมัน|OIL|GAS|PLAZA|CENTER|MART|CAFE|COFFEE|KITCHEN|RESTO)/i;
+// ชื่อไทย 2 คำ (แต่ถ้ามีคำบ่งบอกธุรกิจแล้ว จะ return false ก่อนถึงตรงนี้)
 const THAI_NAME_PATTERN = /[ก-๙]{2,}\s+[ก-๙]{2,}/;
 
 function isLikelyPersonalTransfer(desc = '') {
   if (!desc) return false;
   const clean = desc.trim();
+  // ถ้ามีคำบ่งชี้ร้านค้า/บริษัท ไม่ใช่บุคคล
   if (BUSINESS_KEYWORD_REGEX.test(clean)) return false;
+  // ถ้าขึ้นต้นด้วย "จ่ายบิล" คือจ่ายให้ธุรกิจ ไม่ใช่บุคคล
+  if (/^จ่ายบิล\s/i.test(clean)) return false;
   if (PERSON_KEYWORD_REGEX.test(clean)) return true;
   const noAcct = clean.replace(/^[A-Z0-9\/\-]+\s*/i, '').replace(/x\d{4,}\s*/i, '').trim();
-  if (PERSON_KEYWORD_REGEX.test(noAcct) || THAI_NAME_PATTERN.test(noAcct)) return true;
+  if (PERSON_KEYWORD_REGEX.test(noAcct)) return true;
+  // ชื่อไทย 2 คำ — เช็คเพิ่มว่าไม่ใช่ชื่อร้านที่มีคำบ่งบอกธุรกิจ
+  if (THAI_NAME_PATTERN.test(noAcct) && !BUSINESS_KEYWORD_REGEX.test(noAcct)) return true;
   return false;
 }
 
@@ -553,15 +567,22 @@ window.TangHai.Categorizer = {
       ];
 
       const promptText = `คุณคือผู้เชี่ยวชาญวิเคราะห์สเตทเมนต์ธนาคารไทย และระบบผู้ช่วยจัดหมวดหมู่การเงินส่วนบุคคลอัตโนมัติ
-งานที่ 1: วิเคราะห์รายการโอนเงินต่อไปนี้ แล้วเลือก category ที่ตรงกับข้อเท็จจริงที่สุดจาก: [${availableCats.join(', ')}]
+งานที่ 1: วิเคราะห์รายการใช้จ่ายต่อไปนี้ แล้วเลือก category ที่ตรงกับข้อเท็จจริงที่สุดจาก: [${availableCats.join(', ')}]
 เกณฑ์การตัดสินใจ (ห้ามเดาสุ่ม อิงจากข้อเท็จจริงในชื่อรายการเท่านั้น):
-1. วิเคราะห์จากชื่อร้านค้า/ผู้รับ (key):
-   - ถ้ามีชื่อร้านค้า, บริการ, บริษัท, แบรนด์ หรือคีย์เวิร์ดชัดเจน ให้จัดหมวดตามประเภทธุรกิจจริง (เช่น GRAB, 7-11, BTS, UNIQLO, NETFLIX, โรงพยาบาล)
-   - ถ้าชื่อมีคำว่า หอพัก, คอนโด, เรสซิเดนซ์, การไฟฟ้า, ประปา, ค่าเน็ต ให้จัดเป็น "BILLS"
-2. กรณีโอนเงินให้บุคคล (ชื่อ-นามสกุล บุคคลธรรมดา หรือ PromptPay):
-   - ห้ามเดาเอาเองว่าเป็นค่าอาหารหรือค่าหอจากเวลาและยอดเงินเด็ดขาด เพราะไม่มีทางรู้ว่าโอนให้บุคคลนั้นด้วยเหตุผลใด
-   - รายการที่เป็นชื่อบุคคลธรรมดา ให้จัดเป็น "TRANSFER_PERSON" (โอนให้บุคคล) เสมอ ยกเว้นชื่อนั้นจะมีคำระบุชัดเจนว่าเป็นร้านค้า
-3. ถ้ารายการใดไม่สามารถระบุได้จริงๆ จากชื่อ ให้ใส่ "UNKNOWN" (อื่นๆ) เพื่อให้ผู้ใช้ระบุเอง
+1. "จ่ายบิล ..." หมายความว่าจ่ายเงินให้ธุรกิจ/ร้านค้า/บริษัท ไม่ใช่บุคคล ให้วิเคราะห์ชื่อหลัง "จ่ายบิล":
+   - จ่ายบิล + ชื่อร้านอาหาร (โออิชิ, หมาล่า, ราเมน, ก๋วยเตี๋ยว, ข้าว, SUSHI, PIZZA) → FOOD
+   - จ่ายบิล + ปตท / พีทีที / PTT / OIL / STATION / น้ำมัน → TRANSPORT
+   - จ่ายบิล + นิติบุคคล / อาคารชุด / คอนโด / ค่าส่วนกลาง → BILLS
+   - จ่ายบิล + ชื่อบริษัท (บจก. / จำกัด / LTD) → วิเคราะห์ธุรกิจหลักของบริษัทนั้น
+2. วิเคราะห์ชื่อร้านค้า/ผู้รับด้วยความรู้เกี่ยวกับธุรกิจจริงในไทย:
+   - PTT, ปตท, พีทีที, BANGCHAK, บางจาก, SHELL, CALTEX, SUSCO, RITTIDOL OIL → TRANSPORT
+   - โออิชิ, หมาล่า, MK, ชาบู, ราเมน, RAMEN, ก๋วยเตี๋ยว, ข้าว, SUSHI, PIZZA → FOOD
+   - BTS, MRT, GRAB, Bolt, รถไฟ, ทางด่วน → TRANSPORT
+   - นิติบุคคลอาคารชุด, ส่วนกลาง, หอพัก, คอนโด → BILLS
+   - การไฟฟ้า, ประปา, AIS, TRUE, DTAC, NETFLIX, SPOTIFY → BILLS
+3. "โอนไป SCB/KBNK/KTB + ชื่อนิติบุคคล/บริษัท" → จัดหมวดตามประเภทธุรกิจ ไม่ใช่ TRANSFER_PERSON
+4. กรณีโอนเงินให้บุคคลธรรมดา (ชื่อ-นามสกุลจริง ไม่ใช่ชื่อร้านค้า) → TRANSFER_PERSON เท่านั้น
+5. ถ้าระบุไม่ได้จริงๆ → UNKNOWN
 
 รายการ: ${JSON.stringify(itemsToAsk.slice(0, 40))}
 

@@ -66,6 +66,8 @@ function restoreSessionFromStorage() {
 
 window.TangHai.clearSession = function() {
   localStorage.removeItem(SESSION_STORAGE_KEY);
+  // ล้าง AI cache ด้วย เพื่อให้วิเคราะห์ใหม่ทุกครั้งที่อัพไฟล์ใหม่
+  window.TangHai.Categorizer?.clearAICache?.();
   AppState.rawTransactions = [];
   AppState.transactions = [];
   AppState.uploadedFiles = [];
