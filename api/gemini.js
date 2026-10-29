@@ -31,13 +31,13 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { items, customCategories, promptOverride } = req.body || {};
-    if (!Array.isArray(items) || items.length === 0) {
+    const { items = [], customCategories = [], overviewContext = null, promptOverride } = req.body || {};
+    if ((!Array.isArray(items) || items.length === 0) && !overviewContext && !promptOverride) {
       return res.status(400).json({ error: 'ไม่พบรายการสำหรับวิเคราะห์' });
     }
 
     // จำกัดจำนวนรายการต่อคำขอ (ไม่เกิน 40 รายการที่ไม่ซ้ำกัน) เพื่อคุมโควตาและประสิทธิภาพ
-    const safeItems = items.slice(0, 40);
+    const safeItems = Array.isArray(items) ? items.slice(0, 40) : [];
 
     let promptText = '';
     if (promptOverride && typeof promptOverride === 'string') {
@@ -65,7 +65,7 @@ export default async function handler(req, res) {
       }
 
       promptText = `คุณคือผู้เชี่ยวชาญวิเคราะห์สเตทเมนต์ธนาคารไทย และระบบผู้ช่วยจัดหมวดหมู่การเงินส่วนบุคคลอัตโนมัติ (Automated Personal Finance Categorizer)
-งานที่ 1: วิเคราะห์รายการใช้จ่ายต่อไปนี้ และเลือก category ที่ตรงกับข้อเท็จจริงที่สุดจาก:
+งานที่ 1: วิเคราะห์รายการใช้จ่ายต่อไปนี้ (ถ้ามี) และเลือก category ที่ตรงกับข้อเท็จจริงที่สุดจาก:
 ${defaultCatDesc.join(', ')}
 
 เกณฑ์การตัดสินใจ (อิงจากข้อเท็จจริงในชื่อรายการและบริบทธุรกิจไทย):
@@ -85,16 +85,19 @@ ${defaultCatDesc.join(', ')}
    - ให้จัดเป็น TRANSFER_PERSON เท่านั้น
 4. ถ้ารายการใดไม่สามารถระบุได้จริงๆ ให้ใส่ UNKNOWN
 
-รายการที่ต้องวิเคราะห์:
+รายการที่ต้องวิเคราะห์หมวดหมู่:
 ${JSON.stringify(safeItems)}
 
-งานที่ 2: สรุปภาพรวมพฤติกรรมการเงินสั้นๆ 3 ข้อ (summaryBullets) จากข้อมูลที่มีจริง (ห้ามกุเรื่อง)
+ข้อมูลภาพรวมสเตทเมนต์เพิ่มเติมสำหรับสรุปพฤติกรรมการเงิน:
+${overviewContext ? JSON.stringify(overviewContext) : 'ไม่มีข้อมูลเพิ่มเติม'}
+
+งานที่ 2: สรุปภาพรวมพฤติกรรมการเงินสั้นๆ 3 ข้อ (summaryBullets) จากข้อมูลจริงด้านบน ชี้จุดสังเกตที่เป็นประโยชน์ต่อเจ้าของบัญชี (ห้ามกุเรื่องเด็ดขาด)
 
 ตอบกลับเป็น JSON เท่านั้น:
 {"items":[{"key":"...","category":"...","hint":"..."}],"summaryBullets":["...","...","..."]}`;
     }
 
-    const candidateModels = ['gemini-3.5-flash', 'gemini-3.8-flash', 'gemini-3.5-flash-lite'];
+    const candidateModels = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-2.0-flash-lite'];
 
     const hasUnknownCompany = safeItems.some(item => {
       const k = ((item.key || '') + ' ' + (item.desc || '')).toUpperCase();
@@ -108,8 +111,8 @@ ${JSON.stringify(safeItems)}
     for (const model of candidateModels) {
       try {
         const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`;
-        const supportsGrounding = (model === 'gemini-3.8-flash' || model === 'gemini-3.5-flash');
-        const useGrounding = hasUnknownCompany && supportsGrounding;
+        const supportsGrounding = (model === 'gemini-2.5-flash' || model === 'gemini-2.0-flash');
+        const useGrounding = hasUnknownCompany && supportsGrounding && safeItems.length > 0;
 
         const payload = useGrounding
           ? {

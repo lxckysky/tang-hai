@@ -533,24 +533,64 @@ window.TangHai.Categorizer = {
       }
     }
 
-    if (itemsToAsk.length === 0 && aiCache.summary) {
+    if (itemsToAsk.length === 0 && Array.isArray(aiCache.summary) && aiCache.summary.length > 0) {
       return { cached: true, count: 0 };
     }
+
+    // สร้างข้อมูลสรุปภาพรวม (Sanitized Overview Context) เพื่อให้ Gemini สรุปพฤติกรรมการใช้จ่ายได้เสมอ
+    // แม้กรณีที่รายการร้านค้าตรงกับกฎพื้นฐานครบทุกบรรทัดแล้ว (เช่น ข้อมูลตัวอย่าง SCB / KTB)
+    let totalSpend = 0;
+    let selfTransferTotal = 0;
+    let lateNightCount = 0;
+    let lateNightTotal = 0;
+    const sampleDescriptions = [];
+
+    for (const tx of rawTransactions) {
+      if (tx.debit > 0) {
+        const desc = tx.description || '';
+        if (isMatchingOwnerName(desc, ownerNames)) {
+          selfTransferTotal += tx.debit;
+          continue;
+        }
+        totalSpend += tx.debit;
+        const h = parseInt((tx.time || '12:00').split(':')[0], 10);
+        if (h >= 0 && h < 5) {
+          lateNightCount += 1;
+          lateNightTotal += tx.debit;
+        }
+        if (sampleDescriptions.length < 15) {
+          sampleDescriptions.push({
+            desc: window.TangHai.MemoryStore.normalizeKey(desc),
+            amount: tx.debit,
+            time: tx.time
+          });
+        }
+      }
+    }
+
+    const overviewContext = {
+      totalTransactions: rawTransactions.length,
+      truePersonalSpend: Math.round(totalSpend * 100) / 100,
+      selfTransferExcluded: Math.round(selfTransferTotal * 100) / 100,
+      lateNightSpendCount: lateNightCount,
+      lateNightSpendTotal: Math.round(lateNightTotal * 100) / 100,
+      topSampleMerchants: sampleDescriptions
+    };
 
     let parsed = null;
     const customCats = window.TangHai.getCustomCategoriesList ? window.TangHai.getCustomCategoriesList() : [];
     const userApiKey = this.getApiKey();
 
-    // 1. ถ้าผู้ใช้ตั้งค่า API Key ของตัวเองไว้ ให้เรียกตรงด้วยคีย์ของผู้ใช้เลย (ไม่ใช้เซิร์ฟเวอร์ส่วนกลาง)
+    // 1. ถ้ามี API Key สำหรับ Local Dev ให้เรียกตรง
     if (userApiKey) {
-      parsed = await this.callGeminiDirect(itemsToAsk, customCats, userApiKey);
+      parsed = await this.callGeminiDirect(itemsToAsk, customCats, userApiKey, overviewContext);
     } else if (window.location.protocol.startsWith('http')) {
-      // 2. ถ้าไม่มีคีย์ส่วนตัว ให้เรียกผ่าน Vercel Serverless API Proxy
+      // 2. เรียกผ่าน Vercel Serverless API Proxy อัตโนมัติ (ผู้ใช้ไม่ต้องใส่คีย์เอง)
       try {
         const serverRes = await fetch('/api/gemini', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ items: itemsToAsk, customCategories: customCats })
+          body: JSON.stringify({ items: itemsToAsk, customCategories: customCats, overviewContext })
         });
         if (serverRes.ok) {
           parsed = await serverRes.json();
@@ -595,7 +635,7 @@ window.TangHai.Categorizer = {
     return { cached: false, count: itemsToAsk.length };
   },
 
-  async callGeminiDirect(itemsToAsk, customCats, apiKey) {
+  async callGeminiDirect(itemsToAsk, customCats, apiKey, overviewContext = null) {
     const availableCats = [
       'FOOD (อาหารและเครื่องดื่ม)',
       'GROCERY (ของใช้/ของชำ/สะดวกซื้อ)',
@@ -607,7 +647,7 @@ window.TangHai.Categorizer = {
       'CASH_ATM (ถอนเงินสด)',
       'TRANSFER_PERSON (โอนให้บุคคล/เพื่อน/บุคคลธรรมดา)',
       'UNKNOWN (อื่นๆ)',
-      ...customCats.map(c => `${c.id} (${c.label})`)
+      ...(Array.isArray(customCats) ? customCats.map(c => `${c.id} (${c.label})`) : [])
     ];
 
     const promptText = `คุณคือผู้เชี่ยวชาญวิเคราะห์สเตทเมนต์ธนาคารไทย และระบบผู้ช่วยจัดหมวดหมู่การเงินส่วนบุคคลอัตโนมัติ
@@ -628,13 +668,14 @@ window.TangHai.Categorizer = {
 4. ถ้าระบุไม่ได้จริงๆ: UNKNOWN
 
 รายการ: ${JSON.stringify(itemsToAsk.slice(0, 40))}
+ข้อมูลภาพรวมเพิ่มเติม: ${overviewContext ? JSON.stringify(overviewContext) : '{}'}
 
 งานที่ 2: สรุปภาพรวมพฤติกรรมการเงิน 3 ข้อ (summaryBullets) จากข้อมูลที่มีจริง (ห้ามกุเรื่อง)
 
 ตอบกลับเป็น JSON เท่านั้น:
 {"items":[{"key":"...","category":"...","hint":"..."}],"summaryBullets":["...","...","..."]}`;
 
-    const candidateModels = ['gemini-3.5-flash', 'gemini-3.8-flash', 'gemini-3.5-flash-lite'];
+    const candidateModels = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-2.0-flash-lite'];
     let lastError = null;
 
     for (const model of candidateModels) {
@@ -660,11 +701,7 @@ window.TangHai.Categorizer = {
 
         if (!response.ok) {
           if (response.status === 403) {
-            if (isVertexKey) {
-              throw new Error('API Key บน Google Cloud (Vertex AI) ยังไม่ได้เปิดใช้งาน Service aiplatform.googleapis.com');
-            } else {
-              throw new Error('Gemini API Error (403): สิทธิ์การเข้าถึงถูกปฏิเสธ หรือยังไม่ได้เปิด Generative Language API');
-            }
+            throw new Error('Gemini API Error (403): สิทธิ์การเข้าถึงถูกปฏิเสธ หรือยังไม่ได้เปิด Generative Language API');
           }
           if (response.status === 429 || response.status === 404 || response.status === 400 || response.status === 503) {
             lastError = new Error(`Gemini API Error (${response.status}) on ${model}`);
@@ -681,7 +718,7 @@ window.TangHai.Categorizer = {
         return JSON.parse(jsonMatch ? jsonMatch[0] : cleaned);
       } catch (e) {
         lastError = e;
-        if (e.message.includes('403') || e.message.includes('Vertex AI')) {
+        if (e.message.includes('403')) {
           throw e;
         }
       }

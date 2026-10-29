@@ -20,7 +20,7 @@ const AppState = {
   selfAccounts: [],
   priorityGroups: [],
   stats: null,
-  analysisMode: localStorage.getItem('tanghai_analysis_mode') || 'AI',
+  analysisMode: 'AI',
   isAiLoading: false,
   isAppendMode: false,
   activeFilter: 'ALL',
@@ -29,6 +29,29 @@ const AppState = {
   searchQuery: '',
   pendingPdfBuffer: null
 };
+
+function escapeHtml(str = '') {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function parseDateAndTimeToSortable(dateStr = '', timeStr = '') {
+  const m = String(dateStr).trim().match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})$/);
+  if (!m) return 0;
+  const day = parseInt(m[1], 10);
+  const month = parseInt(m[2], 10) - 1;
+  let year = parseInt(m[3], 10);
+  if (year < 100) year += 2000;
+  if (year > 2400) year -= 543;
+  const tm = String(timeStr || '00:00').trim().match(/^(\d{1,2}):(\d{1,2})/);
+  const hour = tm ? parseInt(tm[1], 10) : 0;
+  const min = tm ? parseInt(tm[2], 10) : 0;
+  return new Date(year, month, day, hour, min).getTime();
+}
 
 function saveSessionToStorage() {
   try {
@@ -55,7 +78,9 @@ function restoreSessionFromStorage() {
       AppState.meta = data.meta || { totalPages: 1, openingBalance: null, closingBalance: null, ownerNames: [] };
       AppState.uploadedFiles = Array.isArray(data.uploadedFiles) ? data.uploadedFiles : [];
       AppState.rawTransactions = data.rawTransactions;
+      AppState.analysisMode = 'AI';
       runAnalysisAndRender(false);
+      triggerAutoAIAnalysis(true);
       return true;
     }
   } catch (e) {
@@ -97,51 +122,12 @@ window.TangHai.loadSampleData = function(bankType = 'SCB') {
     txCount: sample.transactions.length
   }];
   AppState.rawTransactions = sample.transactions.map(t => ({ ...t, sourceFileId: fileId }));
+  window.TangHai.Categorizer?.clearAICache?.();
   runAnalysisAndRender();
   notify(bankType === 'KTB'
     ? 'โหลดข้อมูลตัวอย่าง Krungthai (Code-Level) สำเร็จ'
     : 'โหลดข้อมูลตัวอย่าง SCB (Full Details) สำเร็จ');
-  triggerAutoAIAnalysis();
-};
-
-window.TangHai.initTermsModal = function() {
-  const agreed = localStorage.getItem(CONSENT_STORAGE_KEY);
-  const modal = document.getElementById('terms-modal');
-  if (!agreed && modal) {
-    modal.classList.remove('hidden');
-
-    const scrollBody = document.getElementById('terms-scroll-body');
-    const checkbox = document.getElementById('terms-checkbox');
-    const checkboxLabel = document.getElementById('terms-checkbox-label');
-    const scrollHint = document.getElementById('terms-scroll-hint');
-    const acceptBtn = document.getElementById('terms-accept-btn');
-
-    const checkScroll = () => {
-      if (!scrollBody || !checkbox) return;
-      const isBottom = scrollBody.scrollHeight - scrollBody.scrollTop <= scrollBody.clientHeight + 35;
-      if (isBottom && checkbox.disabled) {
-        checkbox.disabled = false;
-        if (checkboxLabel) checkboxLabel.className = 'text-xs text-zinc-900 font-semibold leading-relaxed';
-        if (scrollHint) {
-          scrollHint.textContent = 'ท่านได้อ่านข้อตกลงครบถ้วนแล้ว กรุณาทำเครื่องหมายยินยอมด้านล่างเพื่อเข้าสู่ระบบ';
-          scrollHint.className = 'text-xs text-zinc-700 bg-zinc-100 py-2 px-3 rounded-xl text-center font-medium border border-zinc-200';
-        }
-      }
-    };
-
-    scrollBody?.addEventListener('scroll', checkScroll);
-    checkbox?.addEventListener('change', () => {
-      if (acceptBtn) {
-        acceptBtn.disabled = !checkbox.checked;
-      }
-    });
-  }
-};
-
-window.TangHai.acceptFormalTerms = function() {
-  localStorage.setItem(CONSENT_STORAGE_KEY, 'accepted');
-  document.getElementById('terms-modal')?.classList.add('hidden');
-  notify('ยินยอมรับข้อตกลงและนโยบายความเป็นส่วนตัวเรียบร้อย พร้อมใช้งานระบบ TangHai');
+  triggerAutoAIAnalysis(true);
 };
 
 window.TangHai.handleAddCustomCategory = function() {
@@ -409,40 +395,36 @@ window.TangHai.removeUploadedFile = function(fileId) {
 };
 
 function updateModeSwitcherUI() {
-  const isAI = AppState.analysisMode === 'AI';
-  const btnBasic = document.getElementById('mode-btn-basic');
-  const btnAI = document.getElementById('mode-btn-ai');
   const aiStatusText = document.getElementById('ai-mode-status');
+  const aiSummaryBadge = document.getElementById('ai-summary-badge');
+  const headerBadge = document.getElementById('ai-header-badge');
+  const headerDot = document.getElementById('ai-header-dot');
+  const headerText = document.getElementById('ai-header-text');
 
-  if (btnBasic && btnAI) {
-    btnBasic.className = !isAI
-      ? 'px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg text-[11px] sm:text-xs font-semibold bg-zinc-900 text-white shadow-sm transition'
-      : 'px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg text-[11px] sm:text-xs font-medium text-zinc-600 hover:text-zinc-900 transition';
-
-    if (AppState.isAiLoading) {
-      btnAI.className = 'px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg text-[11px] sm:text-xs font-semibold bg-indigo-500 text-white shadow-sm transition opacity-80 cursor-wait';
-      btnAI.innerHTML = `
-        <span class="inline-flex items-center gap-1.5">
-          <svg class="animate-spin w-3 h-3 shrink-0" fill="none" viewBox="0 0 24 24">
-            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3"></circle>
-            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4l3-3-3-3v4a8 8 0 00-8 8h4z"></path>
-          </svg>
-          <span class="hidden xl:inline">กำลังวิเคราะห์...</span>
-          <span class="xl:hidden">AI...</span>
-        </span>`;
-    } else {
-      btnAI.className = isAI
-        ? 'px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg text-[11px] sm:text-xs font-semibold bg-indigo-600 text-white shadow-sm transition'
-        : 'px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg text-[11px] sm:text-xs font-medium text-zinc-600 hover:text-zinc-900 transition';
-      btnBasic.innerHTML = '<span class="hidden xl:inline">โหมดพื้นฐาน</span><span class="xl:hidden">พื้นฐาน</span>';
-      btnAI.innerHTML = '<span class="hidden xl:inline">โหมด Gemini AI</span><span class="xl:hidden">AI</span>';
+  if (AppState.isAiLoading) {
+    if (aiStatusText) {
+      aiStatusText.textContent = 'กำลังให้ Gemini Flash วิเคราะห์พฤติกรรมการใช้จ่ายและจัดหมวดหมู่อัตโนมัติ...';
     }
-  }
-
-  if (aiStatusText) {
-    aiStatusText.textContent = isAI
-      ? 'เปิดใช้ Gemini Flash ช่วยวิเคราะห์และแจกแจงหมวดหมู่อัตโนมัติ'
-      : 'โหมดแยกพื้นฐาน (Rule-Based เร็วทันที)';
+    if (aiSummaryBadge) {
+      aiSummaryBadge.textContent = 'กำลังวิเคราะห์...';
+      aiSummaryBadge.className = 'px-2.5 py-1 text-[11px] rounded-full bg-amber-50 text-amber-700 border border-amber-200 font-medium animate-pulse';
+    }
+    if (headerBadge && headerDot && headerText) {
+      headerDot.className = 'w-1.5 h-1.5 rounded-full bg-amber-500 animate-ping';
+      headerText.textContent = 'กำลังวิเคราะห์ AI...';
+    }
+  } else {
+    if (aiStatusText) {
+      aiStatusText.textContent = 'วิเคราะห์พฤติกรรมการใช้จ่ายและจัดหมวดหมู่อัตโนมัติด้วย Gemini Flash';
+    }
+    if (aiSummaryBadge) {
+      aiSummaryBadge.textContent = '✨ วิเคราะห์อัตโนมัติ';
+      aiSummaryBadge.className = 'px-2.5 py-1 text-[11px] rounded-full bg-indigo-50 text-indigo-700 border border-indigo-100 font-medium';
+    }
+    if (headerBadge && headerDot && headerText) {
+      headerDot.className = 'w-1.5 h-1.5 rounded-full bg-emerald-500';
+      headerText.textContent = 'วิเคราะห์ด้วย Gemini AI';
+    }
   }
 }
 
@@ -481,107 +463,26 @@ function hideAILoadingOverlay(success = true) {
       if (title) title.textContent = 'Gemini กำลังวิเคราะห์...';
       if (sub) sub.textContent = 'จัดหมวดหมู่รายการอัตโนมัติ กรุณารอสักครู่';
       if (bar) bar.style.width = '40%';
-    }, 900);
+    }, 700);
   } else {
     overlay.classList.add('hidden');
   }
 }
 
-window.TangHai.setAnalysisMode = async function(mode) {
-  if (AppState.isAiLoading) return;
-
+window.TangHai.setAnalysisMode = async function(mode = 'AI') {
   AppState.analysisMode = mode;
   localStorage.setItem('tanghai_analysis_mode', mode);
-  updateModeSwitcherUI();
-
-  if (mode === 'AI' && AppState.rawTransactions.length > 0) {
-    try {
-      AppState.isAiLoading = true;
-      updateModeSwitcherUI();
-      showAILoadingOverlay(`กำลังส่งรายการให้ Gemini วิเคราะห์ (${AppState.rawTransactions.length} รายการ)`);
-      const res = await window.TangHai.Categorizer.runGeminiLLMAnalysis(AppState.rawTransactions);
-      AppState.isAiLoading = false;
-      runAnalysisAndRender();
-      updateModeSwitcherUI();
-      hideAILoadingOverlay(true);
-      notify(res.cached ? 'โหมด Gemini AI เรียบร้อย (ดึงจากแคชในเครื่อง)' : '✓ Gemini วิเคราะห์สำเร็จ จัดหมวดหมู่ครบทุกรายการ');
-    } catch (err) {
-      AppState.isAiLoading = false;
-      AppState.analysisMode = 'BASIC';
-      localStorage.setItem('tanghai_analysis_mode', 'BASIC');
-      updateModeSwitcherUI();
-      hideAILoadingOverlay(false);
-      runAnalysisAndRender();
-
-      if (err.code === 'NEED_API_KEY') {
-        document.getElementById('apikey-modal')?.classList.remove('hidden');
-        setTimeout(() => document.getElementById('gemini-apikey-input')?.focus(), 50);
-        return;
-      }
-      notify(`หมายเหตุ: ${err.message}`);
-    }
+  if (mode === 'AI') {
+    await triggerAutoAIAnalysis();
   } else {
     runAnalysisAndRender();
-    notify('สลับเป็นโหมดแยกพื้นฐานเรียบร้อย');
   }
 };
 
 window.TangHai.forceReanalyzeAI = async function() {
-  if (!AppState.rawTransactions || AppState.rawTransactions.length === 0) {
-    notify('กรุณาอัปโหลดสเตทเมนต์ก่อนกดวิเคราะห์');
-    return;
-  }
-  // 1. ล้างแคช AI ใน localStorage
+  if (!AppState.rawTransactions || AppState.rawTransactions.length === 0) return;
   window.TangHai.Categorizer?.clearAICache?.();
-  // 2. คำนวณใหม่ทันทีด้วยกฎล่าสุด
-  runAnalysisAndRender();
-  notify('ล้างแคช AI สำเร็จ กำลังเริ่มการวิเคราะห์ใหม่...');
-  // 3. สั่งเรียก Gemini วิเคราะห์ใหม่ทั้งหมด
-  await window.TangHai.setAnalysisMode('AI');
-};
-
-window.TangHai.openApiKeyModal = function() {
-  const input = document.getElementById('gemini-apikey-input');
-  if (input) input.value = window.TangHai.Categorizer?.getApiKey?.() || '';
-  const currentKey = window.TangHai.Categorizer?.getApiKey?.();
-  const statusEl = document.getElementById('apikey-current-status');
-  if (statusEl) {
-    statusEl.textContent = currentKey
-      ? `กำลังใช้ API Key ส่วนตัว: ${currentKey.slice(0, 8)}...${currentKey.slice(-4)}`
-      : 'กำลังใช้เซิร์ฟเวอร์ฟรีส่วนกลาง (Vercel Proxy)';
-  }
-  document.getElementById('apikey-modal')?.classList.remove('hidden');
-  setTimeout(() => input?.focus(), 50);
-};
-
-window.TangHai.closeApiKeyModal = function() {
-  document.getElementById('apikey-modal')?.classList.add('hidden');
-};
-
-window.TangHai.clearCustomApiKey = function() {
-  localStorage.removeItem('tanghai_gemini_api_key');
-  const input = document.getElementById('gemini-apikey-input');
-  if (input) input.value = '';
-  const statusEl = document.getElementById('apikey-current-status');
-  if (statusEl) statusEl.textContent = 'กำลังใช้เซิร์ฟเวอร์ฟรีส่วนกลาง (Vercel Proxy)';
-  window.TangHai.Categorizer?.clearAICache?.();
-  notify('ลบ API Key ส่วนตัวแล้ว กลับไปใช้ระบบส่วนกลาง');
-  window.TangHai.closeApiKeyModal();
-  runAnalysisAndRender();
-};
-
-window.TangHai.saveApiKeyAndEnableAI = function() {
-  const input = document.getElementById('gemini-apikey-input');
-  const key = (input?.value || '').trim();
-  if (!key) {
-    notify('กรุณาวาง Gemini API Key ก่อนกดบันทึก');
-    return;
-  }
-  window.TangHai.Categorizer.setApiKey(key);
-  window.TangHai.Categorizer.clearAICache();
-  window.TangHai.closeApiKeyModal();
-  notify('บันทึก API Key สำเร็จ กำลังเริ่มการวิเคราะห์ด้วย Gemini...');
-  window.TangHai.setAnalysisMode('AI');
+  await triggerAutoAIAnalysis();
 };
 
 function renderAISummary() {
@@ -589,7 +490,7 @@ function renderAISummary() {
   if (!container) return;
   const bullets = AppState.aiSummaryBullets || [];
   container.innerHTML = bullets
-    .map(b => `<li class="text-xs text-zinc-700 leading-relaxed flex items-start gap-2"><span class="w-1.5 h-1.5 rounded-full bg-zinc-900 mt-1.5 shrink-0"></span><span>${b}</span></li>`)
+    .map(b => `<li class="text-xs text-zinc-700 leading-relaxed flex items-start gap-2.5"><span class="w-1.5 h-1.5 rounded-full bg-zinc-900 mt-1.5 shrink-0"></span><span>${escapeHtml(b)}</span></li>`)
     .join('');
 }
 
@@ -625,7 +526,7 @@ function renderOverviewMetrics() {
 
   // คำนวณยอดโอนบัญชีตัวเอง + เงินผ่านมือ (Pass-Through)
   const selfAndPassTotal = txs
-    .filter(t => t.debit > 0 && t.category === 'SELF_TRANSFER')
+    .filter(t => t.debit > 0 && (t.category === 'SELF_TRANSFER' || t.splitFlag?.type === 'PASS_THROUGH'))
     .reduce((sum, t) => sum + t.debit, 0);
 
   // รายจ่ายใช้ชีวิตจริง (ไม่รวมการโยกเงินเข้าบัญชีตัวเองและเงินผ่านมือก้อนใหญ่)
@@ -645,7 +546,7 @@ function renderOverviewMetrics() {
 
   document.getElementById('metric-expense').textContent = `฿${formatNumber(truePersonalSpend)}`;
   if (selfAndPassTotal > 0) {
-    document.getElementById('metric-expense-sub').textContent = `หักโอนบัญชีตัวเอง ฿${formatNumber(selfAndPassTotal)} (ยอดเงินออกทั้งหมด ฿${formatNumber(totalExpense)})`;
+    document.getElementById('metric-expense-sub').textContent = `หักโอนบัญชีตัวเอง/เงินผ่านมือ ฿${formatNumber(selfAndPassTotal)} (ยอดเงินออกทั้งหมด ฿${formatNumber(totalExpense)})`;
   } else {
     document.getElementById('metric-expense-sub').textContent = `ไม่รวมโอนบัญชีตัวเอง ฿0.00 (ยอดเงินออกทั้งหมด ฿${formatNumber(totalExpense)})`;
   }
@@ -799,15 +700,20 @@ window.TangHai.closeCategoryModal = function() {
 };
 
 window.TangHai.changeCategoryFromModal = function(txId, newCategory, currentModalCatKey) {
-  AppState.rawTransactions = AppState.rawTransactions.map(item => {
-    if (item.id === txId) {
-      return { ...item, rowCategoryOverride: newCategory };
-    }
-    return item;
-  });
+  const targetTx = AppState.rawTransactions.find(t => t.id === txId);
+  if (targetTx) {
+    const normKey = window.TangHai.MemoryStore.normalizeKey(targetTx.description);
+    window.TangHai.MemoryStore.saveRule(targetTx.description, newCategory, targetTx.userNote || '');
+    AppState.rawTransactions = AppState.rawTransactions.map(item => {
+      if (window.TangHai.MemoryStore.normalizeKey(item.description) === normKey) {
+        return { ...item, rowCategoryOverride: null };
+      }
+      return item;
+    });
+  }
   runAnalysisAndRender();
   window.TangHai.openCategoryModal(currentModalCatKey);
-  notify('ย้ายหมวดหมู่เรียบร้อยแล้ว');
+  notify('ย้ายหมวดหมู่และจำชื่อรายการเรียบร้อยแล้ว');
 };
 
 function renderTopRecipients() {
@@ -1102,8 +1008,9 @@ function renderTransactionTable() {
     filtered.sort((a, b) => Math.max(b.debit || 0, b.credit || 0) - Math.max(a.debit || 0, a.credit || 0));
   } else if (AppState.sortBy === 'AMOUNT_ASC') {
     filtered.sort((a, b) => Math.max(a.debit || 0, a.credit || 0) - Math.max(b.debit || 0, b.credit || 0));
+  } else if (AppState.sortBy === 'DATE_ASC') {
+    filtered.sort((a, b) => parseDateAndTimeToSortable(a.date, a.time) - parseDateAndTimeToSortable(b.date, b.time));
   }
-  // ถ้าเป็น DATE_ASC จะเรียงตามลำดับในไฟล์ PDF เดิมอยู่แล้ว
 
   const categoryOptionsHtml = selectedCat =>
     Object.values(window.TangHai.CATEGORIES)
@@ -1129,26 +1036,31 @@ function renderTransactionTable() {
     const rowBg = 'hover:bg-zinc-50';
 
     let sourcePillClass = 'bg-zinc-100 text-zinc-600';
-    if (tx.source === 'AI_GUESS') sourcePillClass = 'bg-zinc-100 text-zinc-700 font-medium';
-    if (tx.source === 'MEMORY') sourcePillClass = 'bg-zinc-100 text-zinc-700 font-medium';
+    if (tx.source === 'AI_GUESS') sourcePillClass = 'bg-indigo-50 text-indigo-700 font-medium';
+    if (tx.source === 'MEMORY') sourcePillClass = 'bg-emerald-50 text-emerald-700 font-medium';
     if (tx.category === 'TRANSFER_PERSON') sourcePillClass = 'bg-teal-50 text-teal-700 font-medium';
     if (tx.category === 'UNKNOWN') sourcePillClass = 'bg-zinc-100 text-zinc-600 font-medium';
+
+    const splitBadgeHtml = tx.splitFlag
+      ? `<span class="text-[11px] px-2 py-0.5 rounded-md bg-amber-50 border border-amber-200 text-amber-800 font-medium" title="${escapeHtml(tx.splitFlag.detail || '')}">⚡ ${escapeHtml(tx.splitFlag.badge)}${tx.splitFlag.detail ? ` · ${escapeHtml(tx.splitFlag.detail)}` : ''}</span>`
+      : '';
 
     return `
       <tr class="border-b border-zinc-100 transition-colors ${rowBg}">
         <td class="py-4 px-5 whitespace-nowrap text-xs">
-          <div class="font-medium text-zinc-900 tabular-nums">${tx.date}</div>
+          <div class="font-medium text-zinc-900 tabular-nums">${escapeHtml(tx.date)}</div>
           <div class="text-zinc-400 tabular-nums flex items-center gap-1.5 mt-0.5">
-            <span>${tx.time}</span>
+            <span>${escapeHtml(tx.time)}</span>
             ${isLate ? '<span class="text-[10px] px-1.5 py-0.2 rounded bg-zinc-200 text-zinc-700 font-medium">ดึก</span>' : ''}
           </div>
         </td>
         <td class="py-4 px-5 text-xs">
-          <div class="font-medium text-zinc-900">${tx.description}</div>
+          <div class="font-medium text-zinc-900">${escapeHtml(tx.description)}</div>
           <div class="flex flex-wrap items-center gap-2 mt-1.5">
-            ${tx.sourceBank ? `<span class="text-[11px] px-1.5 py-0.5 rounded bg-zinc-100 text-zinc-700 font-medium">${tx.sourceBank}</span>` : ''}
-            <span class="text-[11px] font-mono text-zinc-400">${tx.code} · ${tx.channel}</span>
-            <span class="text-[11px] px-2 py-0.5 rounded-md font-medium ${sourcePillClass}">${tx.sourceLabel}</span>
+            ${tx.sourceBank ? `<span class="text-[11px] px-1.5 py-0.5 rounded bg-zinc-100 text-zinc-700 font-medium">${escapeHtml(tx.sourceBank)}</span>` : ''}
+            <span class="text-[11px] font-mono text-zinc-400">${escapeHtml(tx.code)} · ${escapeHtml(tx.channel)}</span>
+            <span class="text-[11px] px-2 py-0.5 rounded-md font-medium ${sourcePillClass}">${escapeHtml(tx.sourceLabel)}</span>
+            ${splitBadgeHtml}
           </div>
         </td>
         <td class="py-4 px-5 whitespace-nowrap text-right tabular-nums">
@@ -1164,7 +1076,7 @@ function renderTransactionTable() {
           </select>
         </td>
         <td class="py-4 px-5 text-xs">
-          <input id="note-${tx.id}" type="text" value="${tx.userNote || ''}"
+          <input id="note-${tx.id}" type="text" value="${escapeHtml(tx.userNote || '')}"
             placeholder="หมายเหตุช่วยจำ..."
             class="w-full bg-white border border-zinc-200 rounded-xl px-3 py-2 text-xs text-zinc-900 placeholder-zinc-400 focus:outline-none focus:border-zinc-900" />
         </td>
@@ -1180,16 +1092,20 @@ function renderTransactionTable() {
 
   if (mobileContainer) {
     mobileContainer.innerHTML = filtered.map(tx => {
+      const splitBadgeMobile = tx.splitFlag
+        ? `<span class="px-1.5 py-0.5 rounded bg-amber-50 border border-amber-200 text-amber-800 text-[10px] font-medium">⚡ ${escapeHtml(tx.splitFlag.badge)}</span>`
+        : '';
       return `
         <div class="p-3.5 sm:p-4 space-y-2.5 bg-white">
           <div class="flex items-start justify-between gap-2.5">
             <div class="min-w-0 pr-1">
-              <div class="text-xs sm:text-sm font-semibold text-zinc-900 break-words leading-snug">${tx.description}</div>
+              <div class="text-xs sm:text-sm font-semibold text-zinc-900 break-words leading-snug">${escapeHtml(tx.description)}</div>
               <div class="text-[11px] text-zinc-500 mt-1 flex flex-wrap items-center gap-1.5">
-                <span class="tabular-nums">${tx.date}</span>
-                <span class="tabular-nums">${tx.time}</span>
+                <span class="tabular-nums">${escapeHtml(tx.date)}</span>
+                <span class="tabular-nums">${escapeHtml(tx.time)}</span>
                 <span>·</span>
-                <span class="px-1.5 py-0.2 rounded bg-zinc-100 text-zinc-700 text-[10px] font-medium">${tx.sourceLabel}</span>
+                <span class="px-1.5 py-0.2 rounded bg-zinc-100 text-zinc-700 text-[10px] font-medium">${escapeHtml(tx.sourceLabel)}</span>
+                ${splitBadgeMobile}
               </div>
             </div>
             <div class="text-right tabular-nums shrink-0">
@@ -1204,7 +1120,7 @@ function renderTransactionTable() {
               class="w-full bg-zinc-50 border border-zinc-200 rounded-xl px-2.5 py-1.5 text-xs text-zinc-900">
               ${categoryOptionsHtml(tx.category)}
             </select>
-            <input id="note-m-${tx.id}" type="text" value="${tx.userNote || ''}"
+            <input id="note-m-${tx.id}" type="text" value="${escapeHtml(tx.userNote || '')}"
               placeholder="หมายเหตุช่วยจำ..."
               class="w-full bg-zinc-50 border border-zinc-200 rounded-xl px-2.5 py-1.5 text-xs text-zinc-900 placeholder-zinc-400" />
           </div>
@@ -1245,8 +1161,7 @@ window.TangHai.autoSaveRowChange = function(txId, isMobile = false) {
   notify(`บันทึกเข้าสมุดจำเรียบร้อย (อัปเดต "${saved?.key || normKey}" ${updatedCount} รายการ)`);
 };
 
-// บันทึกจากปุ่มชัดเจนในแถวรายการ — อ่านค่าจาก select/input แล้วบันทึกเข้า MemoryStore
-// อัปเดตเฉพาะแถวที่เกี่ยวข้องใน DOM แทนการ re-render ทั้งหน้าเพื่อป้องกัน scroll jump
+// บันทึกจากปุ่มในแถวรายการ — อ่านค่าจาก select/input บันทึกลง MemoryStore และซิงค์ข้อมูลทุกหน้าแบบสมบูรณ์โดยไม่ให้ Scroll กระโดด
 window.TangHai.saveRowMemory = function(txId, isMobile = false) {
   const tx = AppState.rawTransactions.find(t => t.id === txId);
   if (!tx) return;
@@ -1260,7 +1175,6 @@ window.TangHai.saveRowMemory = function(txId, isMobile = false) {
   const normKey = window.TangHai.MemoryStore.normalizeKey(tx.description);
   const saved = window.TangHai.MemoryStore.saveRule(tx.description, newCategory, newAlias);
 
-  // อัปเดต state
   let updatedCount = 0;
   AppState.rawTransactions = AppState.rawTransactions.map(item => {
     if (window.TangHai.MemoryStore.normalizeKey(item.description) === normKey) {
@@ -1270,43 +1184,10 @@ window.TangHai.saveRowMemory = function(txId, isMobile = false) {
     return item;
   });
 
-  // อัปเดต DOM เฉพาะแถวที่ match — ไม่ re-render ทั้งหน้า scroll ไม่กระโดด
-  AppState.transactions.forEach(item => {
-    if (window.TangHai.MemoryStore.normalizeKey(item.description) !== normKey) return;
-    const id = item.id;
-
-    // ซิงค์ category select ทั้ง desktop และ mobile
-    ['cat-' + id, 'cat-m-' + id].forEach(elId => {
-      const el = document.getElementById(elId);
-      if (el) el.value = newCategory;
-    });
-
-    // ซิงค์ note input ทั้ง desktop และ mobile
-    if (newAlias) {
-      ['note-' + id, 'note-m-' + id].forEach(elId => {
-        const el = document.getElementById(elId);
-        if (el) el.value = newAlias;
-      });
-    }
-  });
-
-  // อัปเดต transactions state สำหรับ render ครั้งต่อไป (ไม่ trigger render ตอนนี้)
-  AppState.transactions = AppState.transactions.map(item => {
-    if (window.TangHai.MemoryStore.normalizeKey(item.description) === normKey) {
-      return { ...item, category: newCategory, userNote: newAlias || item.userNote };
-    }
-    return item;
-  });
-
-  // อัปเดตเฉพาะ badge จัดหมวดหมู่ และ overview metrics (ไม่แตะ DOM รายการ)
-  const unknownCount = AppState.transactions.filter(t => t.category === 'UNKNOWN').length;
-  const navBadge = document.getElementById('nav-badge-priority');
-  const mobBadge = document.getElementById('mobile-badge-priority');
-  if (navBadge) navBadge.textContent = unknownCount;
-  if (mobBadge) mobBadge.textContent = unknownCount;
-
-  // บันทึก session ในพื้นหลัง
-  saveSessionToStorage();
+  // เก็บตำแหน่ง Scroll ปัจจุบันไว้ก่อนอัปเดตทุกหน้า เพื่อให้ทั้งป้ายกำกับ, ตัวเลข Filter, กราฟภาพรวม และตารางซิงค์ตรงกัน 100%
+  const savedScrollY = window.scrollY;
+  runAnalysisAndRender();
+  window.scrollTo(0, savedScrollY);
 
   notify(`บันทึกเข้าสมุดจำเรียบร้อย (อัปเดต "${saved?.key || normKey}" ${updatedCount} รายการ)`);
 };
@@ -1379,6 +1260,14 @@ function mergeParsedStatement(parsed, fileName, isAppend = false) {
   }));
 
   if (isAppend && AppState.rawTransactions.length > 0) {
+    const isDuplicate = AppState.uploadedFiles.some(
+      f => f.fileName === fileName && f.txCount === taggedTxs.length
+    );
+    if (isDuplicate) {
+      notify(`ไฟล์ "${fileName}" ถูกเพิ่มอยู่ในระบบแล้ว`);
+      return;
+    }
+
     AppState.uploadedFiles.push({
       fileId,
       fileName,
@@ -1397,6 +1286,7 @@ function mergeParsedStatement(parsed, fileName, isAppend = false) {
     const bankNames = Array.from(new Set(AppState.uploadedFiles.map(f => f.bankName).filter(Boolean)));
     AppState.meta.bankName = bankNames.join(' + ');
   } else {
+    window.TangHai.Categorizer?.clearAICache?.();
     AppState.fileName = fileName;
     AppState.meta = {
       ...parsed.meta,
@@ -1416,33 +1306,35 @@ function mergeParsedStatement(parsed, fileName, isAppend = false) {
   triggerAutoAIAnalysis();
 }
 
-async function triggerAutoAIAnalysis() {
+async function triggerAutoAIAnalysis(silentOverlay = false) {
   const canCallAI = window.location.protocol.startsWith('http') || Boolean(window.TangHai.Categorizer?.getApiKey());
-  if (!canCallAI || !AppState.rawTransactions.length) return;
+  if (!canCallAI || !AppState.rawTransactions.length || AppState.isAiLoading) return;
 
   try {
     AppState.analysisMode = 'AI';
     localStorage.setItem('tanghai_analysis_mode', 'AI');
     AppState.isAiLoading = true;
     updateModeSwitcherUI();
-    showAILoadingOverlay(`กำลังส่งรายการให้ Gemini วิเคราะห์ (${AppState.rawTransactions.length} รายการ)`);
+    renderAISummary();
+    if (!silentOverlay) {
+      showAILoadingOverlay(`กำลังส่งรายการให้ Gemini วิเคราะห์ (${AppState.rawTransactions.length} รายการ)`);
+    }
     const res = await window.TangHai.Categorizer.runGeminiLLMAnalysis(AppState.rawTransactions);
     AppState.isAiLoading = false;
     runAnalysisAndRender();
     updateModeSwitcherUI();
-    hideAILoadingOverlay(true);
-    notify(res.cached ? '✓ Gemini AI จัดหมวดหมู่เรียบร้อย (จากแคช)' : '✓ Gemini AI วิเคราะห์สำเร็จ จัดหมวดหมู่ครบแล้ว');
+    if (!silentOverlay) {
+      hideAILoadingOverlay(true);
+    }
+    if (!res.cached) {
+      notify('✓ Gemini AI วิเคราะห์และจัดหมวดหมู่อัตโนมัติเรียบร้อยแล้ว');
+    }
   } catch (err) {
     AppState.isAiLoading = false;
     updateModeSwitcherUI();
     hideAILoadingOverlay(false);
-    console.warn('Auto AI analysis error:', err);
-    const msg = err.message || '';
-    if (msg.includes('503') || msg.includes('GEMINI_API_KEY')) {
-      notify('ยังไม่ได้ตั้งค่า GEMINI_API_KEY บน Vercel ระบบใช้การจัดหมวดด้วยกฎพื้นฐานแทน');
-    } else if (msg && !msg.includes('NEED_API_KEY')) {
-      notify(`AI ไม่สามารถวิเคราะห์ได้ (${msg.slice(0, 60)}) ระบบใช้กฎพื้นฐานแทน`);
-    }
+    runAnalysisAndRender();
+    console.warn('Auto AI analysis fallback to Smart Heuristic Engine:', err);
   }
 }
 
@@ -1625,9 +1517,6 @@ document.addEventListener('DOMContentLoaded', () => {
       renderTransactionTable();
     });
   }
-
-  // แสดงหน้าต่างข้อตกลงและนโยบายความเป็นส่วนตัว (Terms & Privacy Agreement Modal) หากยังไม่เคยยินยอม
-  window.TangHai.initTermsModal();
 
   // กู้คืนข้อมูลที่อัปโหลดไว้ล่าสุดอัตโนมัติ (เผลอกด Refresh ข้อมูลไม่หาย!)
   restoreSessionFromStorage();

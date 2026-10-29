@@ -119,18 +119,10 @@
         </button>
 
         <div id="header-actions" class="hidden items-center gap-1.5 sm:gap-2 shrink-0">
-          <!-- ปุ่มสลับโหมด พื้นฐาน vs Gemini AI -->
-          <div class="flex items-center bg-zinc-100 p-0.5 rounded-xl border border-zinc-200 shrink-0">
-            <button id="mode-btn-basic" onclick="window.TangHai.setAnalysisMode('BASIC')"
-              class="px-2 py-1 rounded-lg text-[11px] font-semibold bg-zinc-900 text-white shadow-sm transition">
-              <span class="hidden sm:inline">พื้นฐาน</span>
-              <span class="sm:hidden">B</span>
-            </button>
-            <button id="mode-btn-ai" onclick="window.TangHai.setAnalysisMode('AI')"
-              class="px-2 py-1 rounded-lg text-[11px] font-medium text-zinc-600 hover:text-zinc-900 transition">
-              <span class="hidden sm:inline">Gemini AI</span>
-              <span class="sm:hidden">AI</span>
-            </button>
+          <!-- ป้ายสถานะ AI อัตโนมัติ (ทำงานเบื้องหลังทันทีโดยไม่ต้องกดสลับโหมดเอง) -->
+          <div id="ai-header-badge" class="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-indigo-50 border border-indigo-100 text-[11px] font-medium text-indigo-700 shrink-0">
+            <span id="ai-header-dot" class="w-1.5 h-1.5 rounded-full bg-indigo-500"></span>
+            <span id="ai-header-text">วิเคราะห์ด้วย Gemini AI</span>
           </div>
 
           <button onclick="window.TangHai.exportCSV()"
@@ -190,6 +182,11 @@
             class="sm:hidden mt-1 px-3 py-1.5 rounded-lg border border-zinc-200 bg-white text-xs font-medium text-zinc-700 transition">
             ดูรูปแบบที่รองรับ
           </button>
+        </div>
+
+        <!-- Privacy Assurance Banner (ไม่บล็อกหน้าจอแต่ให้ความมั่นใจ 100%) -->
+        <div class="p-3.5 rounded-xl bg-zinc-50 border border-zinc-200/80 text-[11px] text-zinc-500 leading-relaxed text-center">
+          🔒 <b class="text-zinc-700">ปลอดภัย 100% (Client-Side PDF Processing):</b> ไฟล์ PDF และรหัสผ่านถูกถอดรหัสในเบราว์เซอร์ของคุณโดยตรง ไม่มีการอัปโหลดไฟล์ขึ้นเซิร์ฟเวอร์ และใช้ Gemini AI ช่วยจำแนกหมวดหมู่อัตโนมัติทันที
         </div>
       </div>
     </section>
@@ -252,23 +249,21 @@
           </div>
         </section>
 
-        <!-- กล่อง AI สรุปพฤติกรรมการใช้เงินประจำเดือน -->
-        <section class="bg-white border border-zinc-200 rounded-2xl p-6 shadow-sm space-y-3">
+        <!-- กล่อง AI สรุปพฤติกรรมการใช้เงินประจำเดือน (ทำงานอัตโนมัติ 100% ไม่รบกวนผู้ใช้) -->
+        <section class="bg-white border border-zinc-200 rounded-2xl p-6 shadow-sm space-y-3.5">
           <div class="flex flex-wrap items-center justify-between gap-2">
-            <h2 class="text-sm font-semibold text-zinc-900">สรุปภาพรวมพฤติกรรมการเงิน</h2>
-            <div class="flex flex-wrap items-center gap-2">
-              <span id="ai-mode-status" class="text-xs text-zinc-500">โหมดแยกพื้นฐาน (Rule-Based เร็วทันที)</span>
-              <button onclick="window.TangHai.forceReanalyzeAI()"
-                class="px-2.5 py-1 text-xs rounded-lg border border-zinc-200 bg-white hover:bg-zinc-50 text-zinc-700 font-medium transition"
-                title="ล้างแคชเดิมแล้วให้ Gemini วิเคราะห์ใหม่ทั้งหมด">
-                ล้างแคช AI & วิเคราะห์ใหม่
-              </button>
-              <button onclick="window.TangHai.openApiKeyModal()"
-                class="px-2.5 py-1 text-xs rounded-lg border border-zinc-200 bg-white hover:bg-zinc-50 text-zinc-700 font-medium transition"
-                title="ใส่ API Key ของคุณเองเพื่อใช้งานไม่จำกัดโควตา">
-                ตั้งค่า API Key
-              </button>
+            <div class="flex items-center gap-2.5">
+              <div class="w-8 h-8 rounded-xl bg-zinc-900 text-white flex items-center justify-center text-xs font-bold shrink-0">
+                AI
+              </div>
+              <div>
+                <h2 class="text-sm font-semibold text-zinc-900">สรุปภาพรวมพฤติกรรมการเงิน</h2>
+                <p id="ai-mode-status" class="text-xs text-zinc-500 mt-0.5">วิเคราะห์พฤติกรรมการใช้จ่ายและจัดหมวดหมู่อัตโนมัติด้วย Gemini Flash</p>
+              </div>
             </div>
+            <span id="ai-summary-badge" class="px-2.5 py-1 text-[11px] rounded-full bg-indigo-50 text-indigo-700 border border-indigo-100 font-medium">
+              ✨ วิเคราะห์อัตโนมัติ
+            </span>
           </div>
           <ul id="ai-summary-list" class="space-y-2.5"></ul>
         </section>
@@ -517,128 +512,6 @@
 
       <div class="p-6 overflow-y-auto">
         <div id="cat-modal-transactions" class="divide-y divide-zinc-100 border border-zinc-200 rounded-2xl overflow-hidden"></div>
-      </div>
-    </div>
-  </div>
-
-  <!-- หน้าต่างข้อตกลงและนโยบายความเป็นส่วนตัว (Formal Terms & Privacy Agreement Modal) -->
-  <div id="terms-modal" class="hidden fixed inset-0 z-50 bg-zinc-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-    <div class="w-full max-w-xl bg-white border border-zinc-200 rounded-2xl shadow-2xl flex flex-col max-h-[92vh] overflow-hidden">
-      <!-- Modal Header -->
-      <div class="px-6 py-5 border-b border-zinc-100 flex items-center gap-3.5 shrink-0">
-        <div class="w-10 h-10 rounded-xl bg-zinc-900 text-white flex items-center justify-center shrink-0">
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
-          </svg>
-        </div>
-        <div>
-          <h2 class="text-base font-bold text-zinc-900">ข้อตกลงการใช้งานและนโยบายความเป็นส่วนตัว</h2>
-          <p class="text-xs text-zinc-500 mt-0.5">โปรดอ่านและยอมรับข้อกำหนดก่อนเริ่มเข้าใช้งานระบบ TangHai</p>
-        </div>
-      </div>
-
-      <!-- Scrollable Agreement Text Body -->
-      <div id="terms-scroll-body" class="p-6 overflow-y-auto space-y-4 text-xs text-zinc-600 leading-relaxed max-h-[50vh] bg-zinc-50/50">
-        <div class="p-3.5 rounded-xl bg-zinc-100 border border-zinc-200 text-zinc-800 text-xs font-medium">
-          <b>คำยืนยันความปลอดภัย:</b> TangHai ประมวลผลและถอดรหัสเอกสารภายในเว็บเบราว์เซอร์ของผู้ใช้ 100% ไม่มีการอัปโหลดหรือจัดเก็บไฟล์สเตทเมนต์ของคุณบนเซิร์ฟเวอร์ภายนอกใด ๆ ทั้งสิ้น
-        </div>
-
-        <div class="space-y-1.5">
-          <h4 class="font-semibold text-zinc-900 text-xs">1. การประมวลผลข้อมูลภายในเครื่องของผู้ใช้ 100% (Client-Side Local Processing)</h4>
-          <p>
-            ผู้พัฒนาเคารพและให้ความสำคัญสูงสุดต่อสิทธิความเป็นส่วนตัวและการคุ้มครองข้อมูลส่วนบุคคล (PDPA) เอกสาร e-Statement รวมถึงรายการธุรกรรม ยอดเงิน และชื่อบัญชีทั้งหมด จะถูกถอดรหัส (Decrypt) และประมวลผลในหน่วยความจำ RAM ของอุปกรณ์ของท่านเท่านั้น จะไม่มีการส่งไฟล์ PDF หรือข้อมูลสเตทเมนต์ออกจากอุปกรณ์ของท่านไปยังเซิร์ฟเวอร์ภายนอก
-          </p>
-        </div>
-
-        <div class="space-y-1.5">
-          <h4 class="font-semibold text-zinc-900 text-xs">2. การอนุญาตจัดเก็บข้อมูลในพื้นที่ความจำอุปกรณ์ (Local Storage Permission)</h4>
-          <p>
-            เพื่ออำนวยความสะดวกในการใช้งานอย่างต่อเนื่อง ระบบจำเป็นต้องขออนุญาตบันทึกการตั้งค่า, ผลการจัดหมวดหมู่, และ "สมุดจำหมวดหมู่ร้านค้า (Memory Store)" ไว้ในหน่วยความจำ Local Storage ภายในเว็บเบราว์เซอร์ของอุปกรณ์ของท่าน ทั้งนี้ ข้อมูลดังกล่าวจะคงอยู่เฉพาะในเครื่องของท่าน และท่านสามารถกดปุ่ม "ล้างข้อมูลสเตทเมนต์" ได้ตลอดเวลา
-          </p>
-        </div>
-
-        <div class="space-y-1.5">
-          <h4 class="font-semibold text-zinc-900 text-xs">3. ข้อตกลงการใช้งานปัญญาประดิษฐ์ (AI Serverless Proxy & Anonymization)</h4>
-          <p>
-            กรณีที่ท่านเลือกเปิดใช้งาน "โหมดวิเคราะห์ด้วย AI (Gemini 2.5 Flash)" ระบบจะคัดกรองส่งเฉพาะ <b>"ชื่อร้านค้าที่ไม่คุ้นเคยที่ผ่านการตัดข้อมูลส่วนบุคคล (Anonymized & Deduplicated Merchant Strings)"</b> ไปยัง API เพื่อช่วยจำแนกประเภทร้านค้าเท่านั้น โดยระบบจะ <b>ตัดยอดเงิน วันที่ เวลา และเลขบัญชีออกทั้งหมดก่อนส่ง</b> เพื่อรักษาความลับขั้นสูงสุด
-          </p>
-        </div>
-
-        <div class="space-y-1.5">
-          <h4 class="font-semibold text-zinc-900 text-xs">4. ข้อจำกัดความรับผิดชอบ (Disclaimer)</h4>
-          <p>
-            TangHai เป็นเครื่องมืออำนวยความสะดวกสำหรับสรุปและวิเคราะห์พฤติกรรมการใช้จ่ายส่วนบุคคลเบื้องต้น มิใช่บริการให้คำแนะนำทางการเงิน การลงทุน หรือการทำบัญชีภาษีอย่างเป็นทางการ ผู้พัฒนาจะไม่รับผิดชอบต่อความผิดพลาดอันเกิดจากความไม่สมบูรณ์ของเอกสารต้นทางจากธนาคาร
-          </p>
-        </div>
-
-        <div class="pt-2 text-[11px] text-zinc-400">
-          อัปเดตล่าสุด: ตุลาคม 2026 · สถาปัตยกรรม Privacy-First for Young Webmaster Camp
-        </div>
-      </div>
-
-      <!-- Modal Footer -->
-      <div class="p-5 border-t border-zinc-100 bg-white space-y-3.5 shrink-0">
-        <div id="terms-scroll-hint" class="text-xs text-zinc-500 bg-zinc-50 border border-zinc-200 py-2 px-3 rounded-xl text-center font-medium">
-          กรุณาเลื่อนอ่านข้อตกลงในกล่องข้อความลงมาจนสุด เพื่อเปิดใช้งานการกดยินยอม
-        </div>
-
-        <label class="flex items-start gap-2.5 cursor-pointer select-none">
-          <input type="checkbox" id="terms-checkbox" disabled
-            class="mt-0.5 w-4 h-4 rounded border-zinc-300 text-zinc-900 focus:ring-0 disabled:opacity-40 disabled:cursor-not-allowed transition" />
-          <span id="terms-checkbox-label" class="text-xs text-zinc-400 font-medium leading-relaxed">
-            ข้าพเจ้าได้อ่าน เข้าใจ และยินยอมรับข้อกำหนดการใช้งานและนโยบายความเป็นส่วนตัวข้างต้นทุกประการ
-          </span>
-        </label>
-
-        <button id="terms-accept-btn" disabled onclick="window.TangHai.acceptFormalTerms()"
-          class="w-full py-2.5 px-4 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-white text-xs font-semibold transition disabled:opacity-30 disabled:cursor-not-allowed shadow-sm">
-          ยอมรับข้อตกลงและเข้าสู่ระบบ
-        </button>
-      </div>
-    </div>
-  </div>
-
-  <!-- หน้าต่างตั้งค่า Gemini API Key (เก็บเฉพาะในเบราว์เซอร์เครื่องคุณ ไม่ส่งขึ้น GitHub) -->
-  <div id="apikey-modal" class="hidden fixed inset-0 z-50 bg-zinc-900/40 backdrop-blur-[2px] flex items-center justify-center p-4">
-    <div class="w-full max-w-sm bg-white border border-zinc-200 rounded-2xl p-6 shadow-xl space-y-4">
-      <div>
-        <h3 class="text-sm font-semibold text-zinc-900">ตั้งค่า Gemini API Key</h3>
-        <p class="text-xs text-zinc-500 mt-1 leading-relaxed">
-          หากโควตาเซิร์ฟเวอร์ฟรีเต็มชั่วคราว คุณสามารถนำ API Key ของคุณเองมาใส่ได้ฟรี โดยคีย์จะถูกเก็บไว้ในเบราว์เซอร์เครื่องนี้เท่านั้น (Local Storage)
-        </p>
-      </div>
-
-      <div class="p-2.5 rounded-xl bg-zinc-50 border border-zinc-200 text-[11px] text-zinc-600 space-y-1">
-        <div id="apikey-current-status" class="font-medium text-zinc-800">กำลังตรวจสอบสถานะ...</div>
-        <div>
-          <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" class="text-indigo-600 hover:text-indigo-800 underline font-medium">
-            คลิกที่นี่เพื่อรับ Gemini API Key ฟรีจาก Google AI Studio
-          </a> (ใช้งานฟรี 1,500 ครั้งต่อวัน)
-        </div>
-      </div>
-
-      <div class="space-y-1.5">
-        <label class="text-xs font-medium text-zinc-700">Google Gemini API Key</label>
-        <input id="gemini-apikey-input" type="password" placeholder="AIzaSy..."
-          onkeydown="if(event.key==='Enter') window.TangHai.saveApiKeyAndEnableAI()"
-          class="w-full bg-white border border-zinc-300 rounded-xl px-3.5 py-2.5 text-xs text-zinc-900 focus:outline-none focus:border-zinc-900 font-mono" />
-      </div>
-
-      <div class="flex items-center justify-between gap-2 pt-1">
-        <button onclick="window.TangHai.clearCustomApiKey()"
-          class="px-2.5 py-2 text-xs font-medium text-rose-600 hover:text-rose-700 hover:bg-rose-50 rounded-xl transition" title="ลบคีย์ส่วนตัวและกลับไปใช้เซิร์ฟเวอร์ส่วนกลาง">
-          ลบคีย์
-        </button>
-        <div class="flex items-center gap-2">
-          <button onclick="window.TangHai.closeApiKeyModal()"
-            class="px-3.5 py-2 rounded-xl border border-zinc-200 bg-white hover:bg-zinc-50 text-xs font-medium text-zinc-700 transition">
-            ยกเลิก
-          </button>
-          <button onclick="window.TangHai.saveApiKeyAndEnableAI()"
-            class="px-4 py-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-white text-xs font-semibold transition">
-            บันทึกคีย์
-          </button>
-        </div>
       </div>
     </div>
   </div>
