@@ -128,11 +128,16 @@ export default async function handler(req, res) {
 10. หมวดหมู่ที่ผู้ใช้สร้างเพิ่มเติม (Custom Categories):
    - หากมีหมวดหมู่เพิ่มเติมในรายการตัวเลือกที่ตรงกับลักษณะธุรกรรมอย่างชัดเจน ให้เลือกใช้หมวดหมู่นั้นได้ทันที
 
-11. หมวด UNKNOWN (อื่นๆ):
-   - ใช้เฉพาะกรณีที่เป็นรหัสตัวเลขล้วนหรือชื่อย่อที่ไม่สามารถระบุประเภทธุรกิจได้เลยจริงๆ เท่านั้น พยายามวิเคราะห์จากบริบทธุรกิจไทยให้ได้มากที่สุดก่อนเลือกหมวดนี้
+11. หลักการค้นหาและคิดวิเคราะห์ด้วยตัวเองสำหรับชื่อร้านค้า/บริษัทที่ไม่คุ้นเคย (Autonomous Web Search & Contextual Reasoning):
+   - หากพบชื่อบริษัทจดทะเบียน (บจก., บมจ., หจก., COMPANY LIMITED, PUBLIC COMPANY LIMITED, CO.,LTD.) หรือชื่อร้านค้า/แบรนด์ที่ไม่คุ้นเคย ให้ใช้ Google Search ค้นหาว่าบริษัทหรือร้านค้านั้นประกอบธุรกิจอะไร หรือเป็นเจ้าของผลิตภัณฑ์/ร้านค้าใดในประเทศไทย
+   - วิเคราะห์รากศัพท์และคำทับศัพท์ไทย-อังกฤษในชื่อรายการ (เช่น คำที่สื่อถึงเครื่องดื่ม ดริ้ง/Drink, ผลไม้/Fruit, รถโดยสาร/Bus/บัส, ซุ้มขายของ, ระบบรับชำระหน้าร้าน Ksher/TrueMoney Shop)
+   - ใช้ความสัมพันธ์ระหว่าง "จำนวนเงิน (amount)" และ "เวลาที่ทำรายการ (time)" มาช่วยคิดวิเคราะห์อย่างมีเหตุผล:
+     * รายการสแกน "จ่ายบิล" ยอดเงินหลักสิบถึงร้อยต้นๆ (เช่น 15 - 150 บาท) มักเป็นค่าอาหาร เครื่องดื่ม ขนม หรือค่าเดินทางในชีวิตประจำวัน
+     * รายการสแกน "จ่ายบิล" ยอดเงิน 1 - 12 บาท มักเป็นตู้กดน้ำดื่มหยอดเหรียญ หรือบริการอัตโนมัติย่อย
+   - พยายามค้นหาและวิเคราะห์ประเภทธุรกิจที่แท้จริงของรายการนั้นให้ได้มากที่สุด จะเลือก UNKNOWN เฉพาะเมื่อไม่มีชื่อร้านหรือบริบทใดๆ ให้วิเคราะห์ได้เลยเท่านั้น
 
 ข้อกำหนดสำหรับฟิลด์ "hint" ของแต่ละรายการใน items:
-- ต้องเขียนคำอธิบายสั้นๆ ภาษาไทย (ความยาว 3-8 คำ) ที่ระบุชัดเจนว่าร้านค้าหรือบริษัทนั้นคืออะไร เช่น "ร้านของหวานและเครื่องดื่ม", "บริหารลานจอดรถ JPARK", "ศูนย์สอบ กสพท", "นิติบุคคลคอนโดมิเนียม", "สถานีบริการน้ำมัน", "โรงภาพยนตร์", "ชำระสินค้าออนไลน์" (ห้ามใส่อีโมจิ)
+- ต้องเขียนคำอธิบายสั้นๆ ภาษาไทย (ความยาว 3-8 คำ) ที่ระบุชัดเจนว่าร้านค้าหรือบริษัทนั้นคือธุรกิจอะไรจากการค้นหาและวิเคราะห์ เช่น "รถโดยสารไฟฟ้าไทยสมายล์บัส", "ผู้ผลิตอาหารและเครื่องดื่ม", "ร้านเครื่องดื่มและของหวาน", "ชำระผ่านระบบ QR หน้าร้าน" (ห้ามใส่อีโมจิ)
 
 รายการที่ต้องวิเคราะห์หมวดหมู่:
 ${JSON.stringify(safeItems)}
@@ -152,24 +157,32 @@ ${overviewContext ? JSON.stringify(overviewContext) : 'ไม่มีข้อ�
 {"items":[{"key":"...","category":"...","hint":"..."}],"summaryBullets":["...","...","..."]}`;
     }
 
-    const candidateModels = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-2.0-flash-lite'];
+    const candidateModels = ['gemini-3.5-flash', 'gemini-3.8-flash', 'gemini-3.5-flash-lite', 'gemini-2.5-flash'];
 
-    let lastError = null;
+    const errors = [];
     let parsedData = null;
 
     for (const model of candidateModels) {
       try {
         const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`;
+        const supportsGrounding = (model === 'gemini-3.5-flash' || model === 'gemini-3.8-flash' || model === 'gemini-2.5-flash');
+        const useGrounding = safeItems.length > 0 && supportsGrounding;
 
-        const payload = {
-          contents: [{ role: 'user', parts: [{ text: promptText }] }],
-          generationConfig: {
-            responseMimeType: 'application/json',
-            temperature: 0.15
-          }
-        };
+        const payload = useGrounding
+          ? {
+              contents: [{ role: 'user', parts: [{ text: promptText }] }],
+              tools: [{ google_search: {} }],
+              generationConfig: { temperature: 0.15 }
+            }
+          : {
+              contents: [{ role: 'user', parts: [{ text: promptText }] }],
+              generationConfig: {
+                responseMimeType: 'application/json',
+                temperature: 0.15
+              }
+            };
 
-        const geminiRes = await fetch(url, {
+        let geminiRes = await fetch(url, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -178,10 +191,27 @@ ${overviewContext ? JSON.stringify(overviewContext) : 'ไม่มีข้อ�
           body: JSON.stringify(payload)
         });
 
+        // หากเปิด google_search แล้วโมเดลนั้นไม่รองรับ ให้สลับเป็น JSON mode มาตรฐานทันที
+        if (!geminiRes.ok && useGrounding && (geminiRes.status === 400 || geminiRes.status === 404)) {
+          geminiRes = await fetch(url, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'x-goog-api-key': apiKey
+            },
+            body: JSON.stringify({
+              contents: [{ role: 'user', parts: [{ text: promptText }] }],
+              generationConfig: {
+                responseMimeType: 'application/json',
+                temperature: 0.15
+              }
+            })
+          });
+        }
+
         if (!geminiRes.ok) {
           const errBody = await geminiRes.text();
-          lastError = `Gemini API (${model}) Error ${geminiRes.status}: ${errBody}`;
-          // ถ้า 429 (โควตาโมเดลเต็ม), 404, 400 หรือ 503 -> สลับไปลองโมเดลถัดไปทันที
+          errors.push(`${model}(${geminiRes.status})`);
           if (geminiRes.status === 429 || geminiRes.status === 404 || geminiRes.status === 400 || geminiRes.status === 503) {
             continue;
           }
@@ -196,13 +226,13 @@ ${overviewContext ? JSON.stringify(overviewContext) : 'ไม่มีข้อ�
         parsedData = JSON.parse(jsonMatch ? jsonMatch[0] : cleaned);
         break;
       } catch (e) {
-        lastError = e.message;
+        errors.push(`${model}(${e.message})`);
       }
     }
 
     if (!parsedData) {
       return res.status(502).json({
-        error: `ไม่สามารถเรียก Gemini API ได้ (${lastError || 'Unknown Error'})`
+        error: `ไม่สามารถเรียก Gemini API ได้ (${errors.join(', ') || 'Unknown Error'})`
       });
     }
 

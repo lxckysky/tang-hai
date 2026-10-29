@@ -20,15 +20,12 @@ const MERCHANT_AI_RULES = [
       'BONCHON', 'BURGER KING', 'YAYOI', 'FUJI', 'OISHI', 'SUSHIRO', 'SUKI TEENOI', 'สุกี้ตี๋น้อย',
       'ข้าวมันไก่', 'ข้าวหมูแดง', 'ก๋วยเตี๋ยว', 'ตามสั่ง', 'หมูกระทะ', 'ส้มตำ', 'ชาไข่มุก', 'บาร์บีคิว',
       'บุฟเฟต์', 'เบเกอรี่', 'BAKERY', 'KITCHEN', 'COFFEE', 'TEA', 'NOODLE', 'RESTAURANT', 'DINING', 'BISTRO',
-      // ร้านอาหาร/ของหวาน/สตรีทฟู้ด/เครื่องดื่ม ยอดนิยมในไทย
+      // ร้านอาหาร/ของหวาน/สตรีทฟู้ด ยอดนิยมในไทย
       'หนึ่ง นม นัว', 'นม นัว', 'นมสด', 'ขนมปัง', 'โทสต์', 'TOAST', 'บิงซู', 'โรตี',
       'หมาล่า', 'MALA', 'หมาล่าฮับ', 'หม้อไฟ', 'ชาบู', 'สุกี้',
       'โออิชิ', 'ราเมน', 'RAMEN', 'ราเมง',
       'มหาเฮง', 'ข้าวเหนียว', 'ร้านค้าออมสิน', 'ร้านอาหาร', 'ครัว', 'ของหวาน', 'ขนมหวาน',
-      'ไอศกรีม', 'ไอติม', 'ICE CREAM', 'DESSERT', 'STEAK', 'สเต็ก', 'ลูกชิ้น',
-      'แฮปปี้ดริ้ง', 'ดริ้ง', 'DRINK', 'BEVERAGE', 'JUICE', 'SMOOTHIE', 'น้ำปั่น', 'น้ำผลไม้',
-      'GOLDEN FRUITS', 'FRUIT', 'ผลไม้', 'ซุ้มแปดเหลี่ยม', 'ซุ้มน้ำ', 'TRUEMONEY SHOP (ซุ้ม',
-      'THAIHA', 'ไทยฮา', 'JITDHANA', 'จิตต์ธนา', 'KSHER_CDIP', 'KSHER', 'อัพทูยู', 'KUKKIK'
+      'ไอศกรีม', 'ไอติม', 'ICE CREAM', 'DESSERT', 'STEAK', 'สเต็ก', 'ลูกชิ้น'
     ],
     category: 'FOOD'
   },
@@ -38,7 +35,7 @@ const MERCHANT_AI_RULES = [
       'เวนดิ้ง', 'บุญเติม', 'จิฟฟี่', 'JIFFY', '7-ELEVEN', 'CP ALL', 'LAWSON',
       'LOTUS', "LOTUS'S", 'โลตัส', 'CJ EXPRESS', 'CJ MORE', 'MAKRO', 'แม็คโคร',
       'VILLA MARKET', 'GOURMET MARKET', 'FOODLAND', 'FAMILYMART', 'MINI BIG C',
-      'DONKI', 'DON DON DONKI', 'MAXVALU', 'SUN VENDING', 'ซันเวนดิ้ง', 'เต่าบิน', 'TAO BIN', 'VALABLE PROJECT'
+      'DONKI', 'DON DON DONKI', 'MAXVALU'
     ],
     category: 'GROCERY'
   },
@@ -51,10 +48,9 @@ const MERCHANT_AI_RULES = [
       'ปตท', 'พีทีที', 'PTT STATION', 'RITTIDOL OIL', 'ESSO', 'ESTACIÓN',
       'น้ำมันงาม', 'OIL LTD', 'OIL PART', 'สถานีน้ำมัน', 'ปั๊มน้ำมัน',
       'GAS STATION', 'FUEL', 'PETROLEUM',
-      // รถเมล์ไฟฟ้า บริการที่จอดรถ และยานพาหนะเดินทาง (ไทย สมายล์ บัส / JPARK / GCOO / สกู๊ตเตอร์)
-      'ไทย สมายล์ บัส', 'THAI SMILE BUS', 'สมายล์ บัส', 'SMILE BUS', 'รถเมล์', 'ขสมก',
+      // บริการที่จอดรถ และยานพาหนะเดินทาง (JPARK / GCOO / สกู๊ตเตอร์)
       'JENKONGKLAI', 'เจนก้องไกล', 'JPARK', 'ที่จอดรถ', 'ค่าจอดรถ', 'CAR PARK', 'PARKING',
-      'GCOO', 'SCOOTER', 'สกู๊ตเตอร์', 'BEAM', 'MUVMI', 'มูฟมี', 'เช่ารถ', 'CAR RENTAL'
+      'GCOO', 'SCOOTER', 'สกู๊ตเตอร์', 'BEAM', 'เช่ารถ', 'CAR RENTAL'
     ],
     category: 'TRANSPORT'
   },
@@ -75,8 +71,7 @@ const MERCHANT_AI_RULES = [
       'TIKTOK SHOP', 'PIPO', 'UNIQLO', 'ยูนิโคล่', 'ซัมมิท ไพน์เฮ', 'OMISE', 'SHOPEE', 'LAZADA', 'ยูอาร์เดอะ',
       'PINEHURST', 'LIANLIAN', 'อัลติเมต', 'ZARA', 'H&M', 'MUJI', 'DECATHLON',
       'MR.DIY', 'MR DIY', 'HOMEPRO', 'CENTRAL', 'THE MALL', 'EVEANDBOY', 'BEAUTRIUM',
-      'IKEA', 'APPLE.COM', 'STEAM', 'PLAYSTATION', '2C2P', 'STRIPE', 'ATOME',
-      'เนชั่นแนล เวิลด์', 'NATIONAL WORLD',
+      'IKEA', 'APPLE.COM', 'STEAM', 'PLAYSTATION',
       // โรงภาพยนตร์และความบันเทิง
       'เอส เอฟ ซีเนม่า', 'เอส เอฟ', 'SF CINEMA', 'CINEMA', 'ซีเนม่า', 'MAJOR CINEPLEX', 'เมเจอร์', 'CINEPLEX', 'โรงหนัง', 'เดอะมอลล์'
     ],
@@ -85,11 +80,11 @@ const MERCHANT_AI_RULES = [
   {
     keywords: [
       'METROPOLITAN ELECTRICITY', 'การไฟฟ้า', 'PEA', 'MEA', 'ประปา', 'MWA', 'PWA',
-      'AIS POSTPAID', 'AIS FIBRE', 'TRUE MOVE', 'TRUE ONLINE', 'TRUE DIGITAL', 'DTAC', '3BB',
+      'AIS POSTPAID', 'AIS FIBRE', 'TRUE MOVE', 'TRUE ONLINE', 'DTAC', '3BB',
       'NT BROADBAND', 'NETFLIX', 'SPOTIFY', 'YOUTUBE', 'GOOGLE STORAGE', 'ICLOUD',
       'เดอะเรสซิเดนซ์', 'เรสซิเดนซ์', 'RESIDENCE', 'หอพัก', 'อพาร์ตเมนต์', 'คอนโด', 'ค่าเช่า', 'ส่วนกลาง', 'APARTMENT', 'CONDO',
       'นิติบุคคล', 'อาคารชุด', 'นิติบุคคลอาคาร', 'JURISTIC', 'VILLAGE', 'ESTATE',
-      'ไอดีโอ', 'IDEO', 'ASHTON', 'LPN', 'LUMPINI', 'OTTERI', 'WASHXPRESS', '24WASH',
+      'ไอดีโอ', 'IDEO', 'ASHTON', 'LPN', 'LUMPINI',
       'ค่าน้ำ', 'ค่าไฟ', 'ค่าส่วนกลาง', 'ค่าบริการ', 'ค่าเน็ต', 'ค่าโทรศัพท์'
     ],
     category: 'BILLS'
@@ -178,27 +173,15 @@ function inferByBankCode(tx = {}) {
 }
 
 function inferContextCategory(tx = {}) {
-  const rawDesc = (tx.description || '').trim();
-  const desc = rawDesc.toUpperCase();
-  const amount = tx.debit || 0;
+  const desc = (tx.description || '').toUpperCase();
 
   // 1. ตรวจจาก Bank Code หรือชื่อช่องทาง
   const codeMatch = inferByBankCode(tx);
   if (codeMatch) return codeMatch;
 
   // 2. ค่าเดินทาง — ตรวจจากชื่อบริการที่ชัดเจนใน description
-  if (desc.includes('GRABTAXI') || desc.includes('BOLT RIDE') || desc.includes('LINE MAN RIDE') || desc.includes('SMILE BUS') || desc.includes('สมายล์ บัส')) {
-    return { category: 'TRANSPORT', label: 'แยกจากชื่อร้าน', hint: 'ค่าโดยสารเดินทาง' };
-  }
-
-  // 3. รายการ "จ่ายบิล" ให้ร้านค้าย่อย / ถุงเงิน / TrueMoney Shop / Ksher / บจก. ยอดอาหารและเครื่องดื่ม (10 - 150 บาท)
-  if (/^จ่ายบิล\s+/i.test(rawDesc)) {
-    if (amount > 0 && amount <= 12) {
-      return { category: 'GROCERY', label: 'แยกจากชื่อร้าน', hint: 'ตู้กดน้ำ/บริการหยอดเหรียญย่อย' };
-    }
-    if (amount > 12 && amount <= 150) {
-      return { category: 'FOOD', label: 'แยกจากชื่อร้าน', hint: 'ร้านอาหาร/เครื่องดื่มย่อย' };
-    }
+  if (desc.includes('GRABTAXI') || desc.includes('BOLT RIDE') || desc.includes('LINE MAN RIDE')) {
+    return { category: 'TRANSPORT', label: 'การเดินทาง', hint: 'ค่าโดยสาร Grab/Bolt' };
   }
 
   return null;
@@ -254,7 +237,7 @@ function isMatchingOwnerName(desc = '', ownerData = {}) {
   return tokens.some(t => t.length >= 3 && desc.includes(t));
 }
 
-const AI_CACHE_KEY = 'tanghai_gemini_cache_v3';
+const AI_CACHE_KEY = 'tanghai_gemini_cache_v4';
 const API_KEY_STORAGE = 'tanghai_gemini_api_key';
 
 function getStoredApiKey() {
@@ -597,20 +580,32 @@ window.TangHai.Categorizer = {
       topSampleMerchants: sampleDescriptions
     };
 
-    let parsed = null;
     const customCats = window.TangHai.getCustomCategoriesList ? window.TangHai.getCustomCategoriesList() : [];
     const userApiKey = this.getApiKey();
 
-    // 1. ถ้ามี API Key สำหรับ Local Dev ให้เรียกตรง
-    if (userApiKey) {
-      parsed = await this.callGeminiDirect(itemsToAsk, customCats, userApiKey, overviewContext);
-    } else if (window.location.protocol.startsWith('http')) {
-      // 2. เรียกผ่าน Vercel Serverless API Proxy อัตโนมัติ (ผู้ใช้ไม่ต้องใส่คีย์เอง)
-      try {
+    // แบ่งส่งทีละ Batch (ชุดละ 25 รายการ) เพื่อให้ AI ค้นหาข้อมูล (Google Search Grounding) และคิดวิเคราะห์ได้ครบทุกรายการโดยไม่ติด Timeout
+    const BATCH_SIZE = 25;
+    const batches = [];
+    if (itemsToAsk.length === 0) {
+      batches.push([]);
+    } else {
+      for (let i = 0; i < itemsToAsk.length; i += BATCH_SIZE) {
+        batches.push(itemsToAsk.slice(i, i + BATCH_SIZE));
+      }
+    }
+
+    for (let bIdx = 0; bIdx < batches.length; bIdx++) {
+      const batchItems = batches[bIdx];
+      const ctxForBatch = bIdx === 0 ? overviewContext : null;
+      let parsed = null;
+
+      if (userApiKey) {
+        parsed = await this.callGeminiDirect(batchItems, customCats, userApiKey, ctxForBatch);
+      } else if (window.location.protocol.startsWith('http')) {
         const serverRes = await fetch('/api/gemini', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ items: itemsToAsk, customCategories: customCats, overviewContext })
+          body: JSON.stringify({ items: batchItems, customCategories: customCats, overviewContext: ctxForBatch })
         });
         if (serverRes.ok) {
           parsed = await serverRes.json();
@@ -621,37 +616,35 @@ window.TangHai.Categorizer = {
           err.status = serverRes.status;
           throw err;
         }
-      } catch (e) {
-        console.warn('Vercel Gemini call failed:', e);
-        throw e;
+      } else {
+        const err = new Error('NEED_API_KEY');
+        err.code = 'NEED_API_KEY';
+        throw err;
       }
-    } else {
-      const err = new Error('NEED_API_KEY');
-      err.code = 'NEED_API_KEY';
-      throw err;
-    }
 
-    if (Array.isArray(parsed?.items)) {
-      for (const item of parsed.items) {
-        if (item.key) {
-          const cat = item.category || 'UNKNOWN';
-          const hint = item.hint || '';
-          aiCache.merchants[item.key] = { category: cat, hint };
-          const norm = window.TangHai.MemoryStore.normalizeKey(item.key);
-          if (norm && norm !== item.key) {
-            aiCache.merchants[norm] = { category: cat, hint };
+      if (Array.isArray(parsed?.items)) {
+        for (const item of parsed.items) {
+          if (item.key) {
+            const cat = item.category || 'UNKNOWN';
+            const hint = item.hint || '';
+            aiCache.merchants[item.key] = { category: cat, hint };
+            const norm = window.TangHai.MemoryStore.normalizeKey(item.key);
+            if (norm && norm !== item.key) {
+              aiCache.merchants[norm] = { category: cat, hint };
+            }
           }
         }
       }
-    }
-    if (Array.isArray(parsed?.summaryBullets) && parsed.summaryBullets.length > 0) {
-      aiCache.summary = parsed.summaryBullets;
-    }
-    if (Array.isArray(parsed?.suggestedCustomCategories)) {
-      aiCache.suggestedCategories = parsed.suggestedCustomCategories;
+      if (Array.isArray(parsed?.summaryBullets) && parsed.summaryBullets.length > 0) {
+        aiCache.summary = parsed.summaryBullets;
+      }
+      if (Array.isArray(parsed?.suggestedCustomCategories)) {
+        aiCache.suggestedCategories = parsed.suggestedCustomCategories;
+      }
+
+      saveAICache(aiCache);
     }
 
-    saveAICache(aiCache);
     return { cached: false, count: itemsToAsk.length };
   },
 
@@ -717,7 +710,7 @@ window.TangHai.Categorizer = {
 ตอบกลับเป็น JSON เท่านั้น:
 {"items":[{"key":"...","category":"...","hint":"..."}],"summaryBullets":["...","...","..."]}`;
 
-    const candidateModels = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-2.0-flash-lite'];
+    const candidateModels = ['gemini-3.5-flash', 'gemini-3.8-flash', 'gemini-3.5-flash-lite', 'gemini-2.5-flash'];
     let lastError = null;
 
     for (const model of candidateModels) {

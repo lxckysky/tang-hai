@@ -1325,7 +1325,11 @@ function mergeParsedStatement(parsed, fileName, isAppend = false) {
 
 async function triggerAutoAIAnalysis(silentOverlay = false) {
   const canCallAI = window.location.protocol.startsWith('http') || Boolean(window.TangHai.Categorizer?.getApiKey());
-  if (!canCallAI || !AppState.rawTransactions.length || AppState.isAiLoading) return;
+  if (!canCallAI || !AppState.rawTransactions.length) return;
+  if (AppState.isAiLoading) {
+    AppState.pendingAiReRun = true;
+    return;
+  }
 
   try {
     AppState.analysisMode = 'AI';
@@ -1352,6 +1356,11 @@ async function triggerAutoAIAnalysis(silentOverlay = false) {
     hideAILoadingOverlay(false);
     runAnalysisAndRender();
     console.warn('Auto AI analysis fallback to Smart Heuristic Engine:', err);
+  } finally {
+    if (AppState.pendingAiReRun) {
+      AppState.pendingAiReRun = false;
+      triggerAutoAIAnalysis(true);
+    }
   }
 }
 
