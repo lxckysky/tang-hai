@@ -1398,6 +1398,10 @@ async function triggerAutoAIAnalysis() {
   }
 }
 
+// คิวไฟล์ที่รอประมวลผล และรหัสผ่านล่าสุดที่ใช้สำเร็จ (ลองอัตโนมัติกับไฟล์ถัดไป)
+let pendingFileQueue = [];
+let lastSuccessfulPassword = null;
+
 function openPasswordModal(fileName) {
   const modal = document.getElementById('password-modal');
   document.getElementById('locked-file-name').textContent = fileName;
@@ -1423,6 +1427,7 @@ window.TangHai.submitPdfPassword = async function() {
   try {
     const parsed = await window.TangHai.PDFParser.extractTransactionsFromPDF(AppState.pendingPdfBuffer.slice(0), pwd);
     window.TangHai.closePasswordModal();
+    lastSuccessfulPassword = pwd; // จำรหัสที่สำเร็จไว้ลองกับไฟล์ถัดไป
     if (parsed.transactions.length > 0) {
       mergeParsedStatement(parsed, AppState.pendingFileName, AppState.isAppendMode);
       notify(
@@ -1433,11 +1438,19 @@ window.TangHai.submitPdfPassword = async function() {
     } else {
       alert('ปลดล็อกไฟล์สำเร็จ แต่ไม่พบรูปแบบตารางรายการที่รองรับ');
     }
+    // ประมวลผลไฟล์ถัดไปในคิว
+    await processNextInQueue();
   } catch (err) {
     errEl.textContent = 'รหัสผ่านไม่ถูกต้อง กรุณาตรวจสอบและลองใหม่อีกครั้ง';
     errEl.classList.remove('hidden');
   }
 };
+
+async function processNextInQueue() {
+  if (pendingFileQueue.length === 0) return;
+  const next = pendingFileQueue.shift();
+  await handlePdfFile(next.file, next.isAppend);
+}
 
 async function handlePdfFile(file, isAppend = false) {
   if (!file) return;
@@ -1462,7 +1475,20 @@ async function handlePdfFile(file, isAppend = false) {
     AppState.pendingPdfBuffer = buffer;
 
     if (loadingText) loadingText.textContent = 'กำลังวิเคราะห์ตารางรายการเดินบัญชี...';
-    const parsed = await window.TangHai.PDFParser.extractTransactionsFromPDF(buffer.slice(0));
+
+    // ลองรหัสผ่านล่าสุดที่เคยสำเร็จก่อน (ถ้ามี) เพื่อข้ามขั้นตอนกรอกรหัสซ้ำ
+    let parsed = null;
+    if (lastSuccessfulPassword) {
+      try {
+        parsed = await window.TangHai.PDFParser.extractTransactionsFromPDF(buffer.slice(0), lastSuccessfulPassword);
+        if (!parsed.transactions.length) parsed = null; // ผ่านแต่ไม่มีข้อมูล = ลองต่อ
+      } catch { parsed = null; }
+    }
+
+    // ถ้าไม่ได้ลองรหัสหรือรหัสเดิมไม่ผ่าน → ลองไม่ใส่รหัส
+    if (!parsed) {
+      parsed = await window.TangHai.PDFParser.extractTransactionsFromPDF(buffer.slice(0));
+    }
 
     if (loadingOverlay) {
       loadingOverlay.classList.add('hidden');
@@ -1476,8 +1502,10 @@ async function handlePdfFile(file, isAppend = false) {
           ? `รวมไฟล์ ${file.name} เพิ่มสำเร็จ (+${parsed.transactions.length} รายการ)`
           : `อ่านไฟล์ ${file.name} สำเร็จ (${parsed.transactions.length} รายการ)`
       );
+      // ประมวลผลไฟล์ถัดไปในคิว
+      await processNextInQueue();
     } else {
-      notify('ไม่พบตารางรายการในไฟล์นี้ หากไฟล์มีรหัสผ่าน กรุณากรอกด้านล่าง');
+      // มีข้อมูลน้อยกว่าคาด → อาจต้องการรหัสผ่าน
       openPasswordModal(file.name);
     }
   } catch (err) {
@@ -1485,21 +1513,26 @@ async function handlePdfFile(file, isAppend = false) {
       loadingOverlay.classList.add('hidden');
       loadingOverlay.classList.remove('flex');
     }
-    // PDF.js throws PasswordException for encrypted files
+    // PDF ต้องการรหัสผ่าน → เปิด modal ถาม (ไฟล์ถัดไปในคิวจะถูกเรียกหลัง modal สำเร็จ)
     openPasswordModal(file.name);
   }
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-  // helper: process หลายไฟล์ตามลำดับ (รอทีละไฟล์ ไม่ parallel เพราะ PDF.js มี state)
+  // helper: ใส่ไฟล์ทั้งหมดลงคิว แล้วเริ่มประมวลผลไฟล์แรก
+  // ไฟล์ถัดๆ ไปจะถูกดึงออกจากคิวอัตโนมัติหลังแต่ละไฟล์เสร็จ (รวมถึงหลังกรอกรหัสผ่าน)
   async function processMultipleFiles(files, isAppend) {
     const fileList = Array.from(files).filter(f => f.type === 'application/pdf' || f.name.toLowerCase().endsWith('.pdf'));
     if (fileList.length === 0) return;
-    for (let i = 0; i < fileList.length; i++) {
-      // ไฟล์แรกใช้ isAppend ตามที่ส่งมา ไฟล์ที่สองเป็นต้นไปให้ append เสมอ
-      const appendMode = isAppend || i > 0;
-      await handlePdfFile(fileList[i], appendMode);
-    }
+
+    // ใส่ไฟล์ที่ 2 เป็นต้นไปลงคิว (ไฟล์แรกจะถูกประมวลผลทันที)
+    pendingFileQueue = fileList.slice(1).map((f, i) => ({
+      file: f,
+      isAppend: true // ไฟล์ถัดไปทุกตัว append เสมอ
+    }));
+
+    // เริ่มจากไฟล์แรก
+    await handlePdfFile(fileList[0], isAppend);
   }
 
   document.querySelectorAll('.pdf-file-input').forEach(input => {
