@@ -21,30 +21,32 @@ window.TangHai.MemoryStore = {
 
   /**
    * สกัดชื่อผู้รับโอนมาตรฐาน (Normalize Merchant Key)
-   * แก้ปัญหาเลข Reference เปลี่ยนทุกครั้ง เช่น WIDx3672/K Plus W กับ WIDx1753/K Plus W ให้รวมเป็นกลุ่มเดียวกัน
+   * แก้ปัญหาเลข Reference เปลี่ยนทุกครั้ง และตัดคำนำหน้าการโอน
    */
   normalizeKey(description = '') {
+    if (!description) return '';
     let s = description.trim();
-    s = s.replace(/WIDx\d+\//gi, '');
-    s = s.replace(/Terminal\s*No\.\s*[A-Z0-9]+\//gi, '');
-    s = s.replace(/^จ่ายบิล\s+/i, '');
-    s = s.replace(/^โอนไป\s+/i, '');
-    return s.replace(/\s+/g, ' ').trim();
+    s = s.replace(/WIDx\d+\/?/gi, '');
+    s = s.replace(/Terminal\s*No\.\s*[A-Z0-9]+\/?/gi, '');
+    s = s.replace(/^(?:ชำระเงินค่าสินค้า\/บริการ|ชำระค่าสินค้า|จ่ายบิล|โอนเงินไป|โอนไป|โอนให้|รับโอนจาก|รับโอนเงินจาก|สแกนจ่าย|ชำระเงิน)\s+/i, '');
+    s = s.replace(/\b(?:PromptPay|[A-Z]{2,6})\s*[Xx]\d{3,6}\b/gi, '');
+    return s.replace(/\s+/g, ' ').trim() || description.trim();
   },
 
   findMatch(description = '') {
     const rules = this.getAllRules();
     const normalized = this.normalizeKey(description);
+    if (!normalized && !description) return null;
 
-    if (rules[normalized]) {
+    if (normalized && rules[normalized]) {
       return { key: normalized, ...rules[normalized] };
     }
-    if (rules[description]) {
+    if (description && rules[description]) {
       return { key: description, ...rules[description] };
     }
 
     for (const [savedKey, ruleData] of Object.entries(rules)) {
-      if (savedKey.length >= 4 && normalized.includes(savedKey)) {
+      if (savedKey.length >= 3 && (normalized.includes(savedKey) || description.includes(savedKey))) {
         return { key: savedKey, ...ruleData };
       }
     }

@@ -275,6 +275,21 @@ window.TangHai.Categorizer = {
         };
       }
 
+      // 1. ตรวจสอบสมุดช่วยจำก่อนเสมอ (User Intent / MemoryStore มาก่อนกฎอัตโนมัติ)
+      const memoryMatch = window.TangHai.MemoryStore.findMatch(desc);
+      if (memoryMatch) {
+        memoryHits++;
+        return {
+          ...tx,
+          normKey,
+          category: memoryMatch.category,
+          userNote: tx.userNote || memoryMatch.alias,
+          source: 'MEMORY',
+          sourceLabel: `จำไว้: ${memoryMatch.alias}`,
+          needsReview: false
+        };
+      }
+
       const isSelf = isMatchingOwnerName(desc, ownerNames);
 
       if (tx.code === 'X1' || tx.credit > 0) {
@@ -299,20 +314,6 @@ window.TangHai.Categorizer = {
           category: 'SELF_TRANSFER',
           source: 'RULE',
           sourceLabel: 'โอนบัญชีตัวเอง',
-          needsReview: false
-        };
-      }
-
-      const memoryMatch = window.TangHai.MemoryStore.findMatch(desc);
-      if (memoryMatch) {
-        memoryHits++;
-        return {
-          ...tx,
-          normKey,
-          category: memoryMatch.category,
-          userNote: tx.userNote || memoryMatch.alias,
-          source: 'MEMORY',
-          sourceLabel: `จำไว้: ${memoryMatch.alias}`,
           needsReview: false
         };
       }

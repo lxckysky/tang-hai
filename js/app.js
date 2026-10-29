@@ -847,16 +847,38 @@ function renderMemoryRules() {
   const rules = window.TangHai.MemoryStore.getAllRules();
   const entries = Object.entries(rules);
 
+  const categoryOptionsHtml = Object.values(window.TangHai.CATEGORIES)
+    .filter(c => c.id !== 'INCOME')
+    .map(c => `<option value="${c.id}">${c.label}</option>`)
+    .join('');
+
+  const formHtml = `
+    <div class="p-3.5 rounded-xl bg-zinc-50 border border-zinc-200/80 space-y-2.5 mb-4">
+      <div class="text-xs font-semibold text-zinc-900">เพิ่มชื่อช่วยจำด้วยตนเอง</div>
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+        <input id="mem-input-desc" type="text" placeholder="คำในสเตทเมนต์ (เช่น FE01 หรือ น.ส. สมศรี)..."
+          class="bg-white border border-zinc-200 rounded-lg px-2.5 py-1.5 text-xs text-zinc-900 focus:outline-none focus:border-zinc-900" />
+        <select id="mem-input-cat" class="bg-white border border-zinc-200 rounded-lg px-2.5 py-1.5 text-xs text-zinc-900 focus:outline-none focus:border-zinc-900">
+          ${categoryOptionsHtml}
+        </select>
+        <input id="mem-input-alias" type="text" placeholder="ชื่อเรียกช่วยจำ (เช่น ค่าหอพัก)..."
+          class="bg-white border border-zinc-200 rounded-lg px-2.5 py-1.5 text-xs text-zinc-900 focus:outline-none focus:border-zinc-900" />
+      </div>
+      <div class="flex justify-end">
+        <button onclick="window.TangHai.addManualMemoryRule()"
+          class="px-3.5 py-1.5 rounded-lg bg-zinc-900 hover:bg-zinc-800 text-white text-xs font-medium transition">
+          บันทึกเข้าสมุดจำ
+        </button>
+      </div>
+    </div>
+  `;
+
   if (entries.length === 0) {
     container.innerHTML = `
-      <div class="py-6 space-y-3">
+      ${formHtml}
+      <div class="py-4 space-y-2">
         <div class="text-xs text-zinc-500 leading-relaxed">
-          <b class="text-zinc-700 font-semibold">สมุดจำยังว่างอยู่</b> — ระบบจะบันทึกอัตโนมัติทุกครั้งที่คุณ<b>ระบุหมวดหมู่</b>ให้รายการในหน้า "จัดหมวดหมู่"
-        </div>
-        <div class="p-3 rounded-xl bg-zinc-50 border border-zinc-100 text-xs text-zinc-500 space-y-1.5">
-          <div class="flex items-start gap-2"><span class="text-zinc-400 shrink-0 mt-0.5">→</span><span>ไปที่หน้า <b class="text-zinc-700">จัดหมวดหมู่</b> เลือกหมวดให้รายการ แล้วกด <b class="text-zinc-700">บันทึก</b></span></div>
-          <div class="flex items-start gap-2"><span class="text-zinc-400 shrink-0 mt-0.5">→</span><span>ระบบจะจำชื่อร้าน/คนนั้นไว้ ครั้งถัดไปจะแยกหมวดให้อัตโนมัติทันที</span></div>
-          <div class="flex items-start gap-2"><span class="text-zinc-400 shrink-0 mt-0.5">→</span><span>ข้อมูลเก็บในเบราว์เซอร์เครื่องนี้ ไม่ส่งออกไปไหน</span></div>
+          <b class="text-zinc-700 font-semibold">สมุดจำยังว่างอยู่</b> — สามารถพิมพ์เพิ่มเองด้านบน หรือเมื่อคุณเปลี่ยนหมวดหมู่ในหน้า "จัดหมวดหมู่" และ "รายการธุรกรรม" ระบบจะจำให้อัตโนมัติทันที
         </div>
       </div>
     `;
@@ -864,18 +886,19 @@ function renderMemoryRules() {
   }
 
   container.innerHTML = `
-    <div class="text-xs text-zinc-400 pb-2">${entries.length} รายชื่อที่จำไว้ — จะแยกหมวดอัตโนมัติในรอบถัดไป</div>
+    ${formHtml}
+    <div class="text-xs text-zinc-400 pb-2">${entries.length} รายชื่อที่จำไว้ — จะแยกหมวดหมู่อัตโนมัติทุกครั้งที่พบคำตรงกัน</div>
     <div class="space-y-2">
       ${entries.map(([key, rule]) => {
         const cat = window.TangHai.CATEGORIES[rule.category] || window.TangHai.CATEGORIES.UNKNOWN;
         return `
-          <div class="flex items-center justify-between p-3.5 rounded-xl bg-zinc-50 border border-zinc-200/80 text-xs">
+          <div class="flex items-center justify-between p-3 rounded-xl bg-zinc-50 border border-zinc-200/80 text-xs">
             <div class="min-w-0 pr-3 space-y-0.5">
               <div class="text-sm font-medium text-zinc-900 truncate">${rule.alias || key}</div>
-              <div class="text-xs text-zinc-400 truncate">${key} · <span class="font-medium" style="color:${cat.color}">${cat.label}</span></div>
+              <div class="text-xs text-zinc-400 truncate">${key} · <span class="font-medium text-zinc-700">${cat.label}</span></div>
             </div>
             <button onclick="window.TangHai.removeMemoryRule('${key.replace(/'/g, "\\'")}')"
-              class="text-zinc-300 hover:text-rose-500 px-2.5 py-1.5 text-xs transition shrink-0 rounded-lg hover:bg-rose-50">
+              class="text-zinc-400 hover:text-rose-600 px-2.5 py-1.5 text-xs transition shrink-0 rounded-lg hover:bg-rose-50">
               ลบ
             </button>
           </div>
@@ -884,6 +907,25 @@ function renderMemoryRules() {
     </div>
   `;
 }
+
+window.TangHai.addManualMemoryRule = function() {
+  const descEl = document.getElementById('mem-input-desc');
+  const catEl = document.getElementById('mem-input-cat');
+  const aliasEl = document.getElementById('mem-input-alias');
+
+  const desc = descEl ? descEl.value.trim() : '';
+  const cat = catEl ? catEl.value : 'FOOD';
+  const alias = aliasEl ? aliasEl.value.trim() : '';
+
+  if (!desc) {
+    notify('กรุณากรอกคำที่ปรากฏในสเตทเมนต์');
+    return;
+  }
+
+  window.TangHai.MemoryStore.saveRule(desc, cat, alias);
+  runAnalysisAndRender();
+  notify(`บันทึก "${desc}" เข้าสมุดช่วยจำเรียบร้อยแล้ว`);
+};
 
 function renderSelfAccountsFlow() {
   const container = document.getElementById('self-accounts-list');
@@ -1004,27 +1046,18 @@ window.TangHai.savePriorityGroup = function(groupIdx, txId) {
   const newCategory = catEl ? catEl.value : 'FOOD';
   const newAlias = noteEl ? noteEl.value.trim() : '';
   const normKey = window.TangHai.MemoryStore.normalizeKey(tx.description);
-  const isGeneric = /TRUE MONEY|K PLUS W|LINE PAY|CARDLESS ATM|INTERNET|KTB/i.test(normKey);
 
-  if (isGeneric) {
-    AppState.rawTransactions = AppState.rawTransactions.map(item =>
-      item.id === txId ? { ...item, rowCategoryOverride: newCategory, userNote: newAlias || item.userNote } : item
-    );
-    runAnalysisAndRender();
-    notify('บันทึกรายการเรียบร้อยแล้ว');
-  } else {
-    const saved = window.TangHai.MemoryStore.saveRule(tx.description, newCategory, newAlias);
-    let updatedCount = 0;
-    AppState.rawTransactions = AppState.rawTransactions.map(item => {
-      if (window.TangHai.MemoryStore.normalizeKey(item.description) === normKey) {
-        updatedCount++;
-        return { ...item, rowCategoryOverride: null, userNote: newAlias || item.userNote };
-      }
-      return item;
-    });
-    runAnalysisAndRender();
-    notify(`บันทึก "${saved.key}" เรียบร้อย (อัปเดตพร้อมกัน ${updatedCount} รายการ)`);
-  }
+  const saved = window.TangHai.MemoryStore.saveRule(tx.description, newCategory, newAlias);
+  let updatedCount = 0;
+  AppState.rawTransactions = AppState.rawTransactions.map(item => {
+    if (window.TangHai.MemoryStore.normalizeKey(item.description) === normKey) {
+      updatedCount++;
+      return { ...item, rowCategoryOverride: null, userNote: newAlias || item.userNote };
+    }
+    return item;
+  });
+  runAnalysisAndRender();
+  notify(`บันทึกเข้าสมุดจำเรียบร้อย (อัปเดตพร้อมกัน ${updatedCount} รายการ)`);
 };
 
 function renderTransactionTable() {
@@ -1173,29 +1206,18 @@ window.TangHai.autoSaveRowChange = function(txId, isMobile = false) {
   const newAlias = noteInput ? noteInput.value.trim() : '';
 
   const normKey = window.TangHai.MemoryStore.normalizeKey(tx.description);
-  const isGenericWalletOrAtm = /TRUE MONEY|K PLUS W|LINE PAY|CARDLESS ATM|INTERNET|KTB/i.test(normKey);
+  const saved = window.TangHai.MemoryStore.saveRule(tx.description, newCategory, newAlias);
 
-  if (isGenericWalletOrAtm) {
-    // ถ้ารายการเป็นเติมเงิน Wallet หรือกด ATM ให้บันทึกเฉพาะบรรทัดนี้
-    AppState.rawTransactions = AppState.rawTransactions.map(item =>
-      item.id === txId ? { ...item, rowCategoryOverride: newCategory, userNote: newAlias } : item
-    );
-    runAnalysisAndRender();
-    notify('บันทึกการแก้ไขเรียบร้อยแล้ว');
-  } else {
-    // ถ้าเป็นชื่อคนหรือชื่อร้านค้า ให้จำชื่อนี้ไว้ใช้กับทุกบรรทัดที่ชื่อตรงกันอัตโนมัติ!
-    window.TangHai.MemoryStore.saveRule(tx.description, newCategory, newAlias);
-    let updatedCount = 0;
-    AppState.rawTransactions = AppState.rawTransactions.map(item => {
-      if (window.TangHai.MemoryStore.normalizeKey(item.description) === normKey) {
-        updatedCount++;
-        return { ...item, rowCategoryOverride: null, userNote: newAlias || item.userNote };
-      }
-      return item;
-    });
-    runAnalysisAndRender();
-    notify(`บันทึกอัตโนมัติเรียบร้อย (อัปเดตชื่อ "${normKey}" ทั้งหมด ${updatedCount} รายการ)`);
-  }
+  let updatedCount = 0;
+  AppState.rawTransactions = AppState.rawTransactions.map(item => {
+    if (window.TangHai.MemoryStore.normalizeKey(item.description) === normKey) {
+      updatedCount++;
+      return { ...item, rowCategoryOverride: null, userNote: newAlias || item.userNote };
+    }
+    return item;
+  });
+  runAnalysisAndRender();
+  notify(`บันทึกเข้าสมุดจำเรียบร้อย (อัปเดต "${saved?.key || normKey}" ${updatedCount} รายการ)`);
 };
 
 window.TangHai.removeMemoryRule = function(key) {
