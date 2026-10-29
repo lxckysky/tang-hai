@@ -847,47 +847,18 @@ function renderMemoryRules() {
   const rules = window.TangHai.MemoryStore.getAllRules();
   const entries = Object.entries(rules);
 
-  const categoryOptionsHtml = Object.values(window.TangHai.CATEGORIES)
-    .filter(c => c.id !== 'INCOME')
-    .map(c => `<option value="${c.id}">${c.label}</option>`)
-    .join('');
-
-  const formHtml = `
-    <div class="p-3.5 rounded-xl bg-zinc-50 border border-zinc-200/80 space-y-2.5 mb-4">
-      <div class="text-xs font-semibold text-zinc-900">เพิ่มชื่อช่วยจำด้วยตนเอง</div>
-      <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
-        <input id="mem-input-desc" type="text" placeholder="คำในสเตทเมนต์ (เช่น FE01 หรือ น.ส. สมศรี)..."
-          class="bg-white border border-zinc-200 rounded-lg px-2.5 py-1.5 text-xs text-zinc-900 focus:outline-none focus:border-zinc-900" />
-        <select id="mem-input-cat" class="bg-white border border-zinc-200 rounded-lg px-2.5 py-1.5 text-xs text-zinc-900 focus:outline-none focus:border-zinc-900">
-          ${categoryOptionsHtml}
-        </select>
-        <input id="mem-input-alias" type="text" placeholder="ชื่อเรียกช่วยจำ (เช่น ค่าหอพัก)..."
-          class="bg-white border border-zinc-200 rounded-lg px-2.5 py-1.5 text-xs text-zinc-900 focus:outline-none focus:border-zinc-900" />
-      </div>
-      <div class="flex justify-end">
-        <button onclick="window.TangHai.addManualMemoryRule()"
-          class="px-3.5 py-1.5 rounded-lg bg-zinc-900 hover:bg-zinc-800 text-white text-xs font-medium transition">
-          บันทึกเข้าสมุดจำ
-        </button>
-      </div>
-    </div>
-  `;
-
   if (entries.length === 0) {
     container.innerHTML = `
-      ${formHtml}
-      <div class="py-4 space-y-2">
-        <div class="text-xs text-zinc-500 leading-relaxed">
-          <b class="text-zinc-700 font-semibold">สมุดจำยังว่างอยู่</b> — สามารถพิมพ์เพิ่มเองด้านบน หรือเมื่อคุณเปลี่ยนหมวดหมู่ในหน้า "จัดหมวดหมู่" และ "รายการธุรกรรม" ระบบจะจำให้อัตโนมัติทันที
-        </div>
+      <div class="py-8 text-center space-y-1.5">
+        <div class="text-sm font-medium text-zinc-700">สมุดช่วยจำยังว่างอยู่</div>
+        <div class="text-xs text-zinc-400 leading-relaxed max-w-sm mx-auto">กดปุ่ม <span class="font-medium text-zinc-600">บันทึก</span> ที่แถวรายการในหน้า "รายการทั้งหมด" เพื่อบันทึกหมวดหมู่และชื่อช่วยจำสำหรับรายการนั้น</div>
       </div>
     `;
     return;
   }
 
   container.innerHTML = `
-    ${formHtml}
-    <div class="text-xs text-zinc-400 pb-2">${entries.length} รายชื่อที่จำไว้ — จะแยกหมวดหมู่อัตโนมัติทุกครั้งที่พบคำตรงกัน</div>
+    <div class="text-xs text-zinc-400 pb-3">${entries.length} รายชื่อที่จำไว้ — จะแยกหมวดหมู่อัตโนมัติทุกครั้งที่พบคำตรงกัน</div>
     <div class="space-y-2">
       ${entries.map(([key, rule]) => {
         const cat = window.TangHai.CATEGORIES[rule.category] || window.TangHai.CATEGORIES.UNKNOWN;
@@ -1100,7 +1071,7 @@ function renderTransactionTable() {
   if (filtered.length === 0) {
     tbody.innerHTML = `
       <tr>
-        <td colspan="5" class="py-12 text-center text-xs text-zinc-400">ไม่พบรายการที่ตรงกับเงื่อนไขการค้นหา</td>
+        <td colspan="6" class="py-12 text-center text-xs text-zinc-400">ไม่พบรายการที่ตรงกับเงื่อนไขการค้นหา</td>
       </tr>
     `;
     if (mobileContainer) {
@@ -1143,16 +1114,21 @@ function renderTransactionTable() {
           <div class="text-[11px] text-zinc-400 mt-0.5">คงเหลือ ${formatNumber(tx.balance)}</div>
         </td>
         <td class="py-4 px-5 text-xs">
-          <select id="cat-${tx.id}" onchange="window.TangHai.autoSaveRowChange('${tx.id}', false)"
+          <select id="cat-${tx.id}"
             class="w-full bg-white border border-zinc-200 text-zinc-800 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-zinc-900 cursor-pointer">
             ${categoryOptionsHtml(tx.category)}
           </select>
         </td>
         <td class="py-4 px-5 text-xs">
           <input id="note-${tx.id}" type="text" value="${tx.userNote || ''}"
-            onchange="window.TangHai.autoSaveRowChange('${tx.id}', false)"
-            placeholder="พิมพ์ช่วยจำแล้วกด Enter (บันทึกอัตโนมัติ)..."
+            placeholder="หมายเหตุช่วยจำ..."
             class="w-full bg-white border border-zinc-200 rounded-xl px-3 py-2 text-xs text-zinc-900 placeholder-zinc-400 focus:outline-none focus:border-zinc-900" />
+        </td>
+        <td class="py-4 px-5 whitespace-nowrap text-center">
+          <button onclick="window.TangHai.saveRowMemory('${tx.id}', false)"
+            class="px-3 py-1.5 rounded-lg bg-zinc-900 hover:bg-zinc-800 text-white text-xs font-medium transition shadow-sm">
+            บันทึก
+          </button>
         </td>
       </tr>
     `;
@@ -1180,14 +1156,19 @@ function renderTransactionTable() {
             </div>
           </div>
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
-            <select id="cat-m-${tx.id}" onchange="window.TangHai.autoSaveRowChange('${tx.id}', true)"
+            <select id="cat-m-${tx.id}"
               class="w-full bg-zinc-50 border border-zinc-200 rounded-xl px-2.5 py-1.5 text-xs text-zinc-900">
               ${categoryOptionsHtml(tx.category)}
             </select>
             <input id="note-m-${tx.id}" type="text" value="${tx.userNote || ''}"
-              onchange="window.TangHai.autoSaveRowChange('${tx.id}', true)"
-              placeholder="พิมพ์ช่วยจำ..."
+              placeholder="หมายเหตุช่วยจำ..."
               class="w-full bg-zinc-50 border border-zinc-200 rounded-xl px-2.5 py-1.5 text-xs text-zinc-900 placeholder-zinc-400" />
+          </div>
+          <div class="flex justify-end pt-1">
+            <button onclick="window.TangHai.saveRowMemory('${tx.id}', true)"
+              class="px-3.5 py-1.5 rounded-lg bg-zinc-900 hover:bg-zinc-800 text-white text-xs font-medium transition">
+              บันทึก
+            </button>
           </div>
         </div>
       `;
@@ -1202,6 +1183,32 @@ window.TangHai.autoSaveRowChange = function(txId, isMobile = false) {
 
   const catSelect = document.getElementById(isMobile ? `cat-m-${txId}` : `cat-${txId}`);
   const noteInput = document.getElementById(isMobile ? `note-m-${txId}` : `note-${txId}`);
+  const newCategory = catSelect ? catSelect.value : tx.category;
+  const newAlias = noteInput ? noteInput.value.trim() : '';
+
+  const normKey = window.TangHai.MemoryStore.normalizeKey(tx.description);
+  const saved = window.TangHai.MemoryStore.saveRule(tx.description, newCategory, newAlias);
+
+  let updatedCount = 0;
+  AppState.rawTransactions = AppState.rawTransactions.map(item => {
+    if (window.TangHai.MemoryStore.normalizeKey(item.description) === normKey) {
+      updatedCount++;
+      return { ...item, rowCategoryOverride: null, userNote: newAlias || item.userNote };
+    }
+    return item;
+  });
+  runAnalysisAndRender();
+  notify(`บันทึกเข้าสมุดจำเรียบร้อย (อัปเดต "${saved?.key || normKey}" ${updatedCount} รายการ)`);
+};
+
+// บันทึกจากปุ่มชัดเจนในแถวรายการ — อ่านค่าจาก select/input แล้วบันทึกเข้า MemoryStore
+window.TangHai.saveRowMemory = function(txId, isMobile = false) {
+  const tx = AppState.rawTransactions.find(t => t.id === txId);
+  if (!tx) return;
+
+  const prefix = isMobile ? 'm-' : '';
+  const catSelect = document.getElementById(`cat-${prefix}${txId}`);
+  const noteInput = document.getElementById(`note-${prefix}${txId}`);
   const newCategory = catSelect ? catSelect.value : tx.category;
   const newAlias = noteInput ? noteInput.value.trim() : '';
 
