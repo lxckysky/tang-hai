@@ -34,6 +34,17 @@
         display: none !important;
       }
     }
+    /* ซ่อน Nav จนกว่าจะมีข้อมูล (ป้องกัน lg:flex override hidden ก่อนอัพไฟล์) */
+    #desktop-nav.hidden {
+      display: none !important;
+    }
+    #mobile-bottom-nav.hidden {
+      display: none !important;
+    }
+    /* เมื่อ JS เปิด nav ให้ใช้ flex layout */
+    #desktop-nav:not(.hidden) {
+      display: flex;
+    }
     /* บนหน้าจอ PC และ iPad แนวนอน (>=1024px) ซ่อน Bottom Tab Bar */
     @media (min-width: 1024px) {
       #mobile-bottom-nav {
@@ -75,7 +86,7 @@
       </div>
 
       <!-- เมนูสลับหน้าบน PC และ iPad แนวนอน (lg: 1024px ขึ้นไป ไม่เกะกะบน iPad แนวตั้ง) -->
-      <nav id="desktop-nav" class="hidden lg:flex items-center gap-1 bg-zinc-100 p-1 rounded-xl shrink-0">
+      <nav id="desktop-nav" class="hidden items-center gap-1 bg-zinc-100 p-1 rounded-xl shrink-0">
         <button data-page="OVERVIEW" onclick="window.TangHai.switchPage('OVERVIEW')"
           class="nav-page-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-white text-zinc-900 shadow-sm transition">
           ภาพรวม
