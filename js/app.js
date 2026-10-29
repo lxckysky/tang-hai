@@ -1340,7 +1340,12 @@ async function triggerAutoAIAnalysis(silentOverlay = false) {
     if (!silentOverlay) {
       showAILoadingOverlay(`กำลังส่งรายการให้ Gemini วิเคราะห์ (${AppState.rawTransactions.length} รายการ)`);
     }
-    const res = await window.TangHai.Categorizer.runGeminiLLMAnalysis(AppState.rawTransactions);
+    const res = await window.TangHai.Categorizer.runGeminiLLMAnalysis(
+      AppState.rawTransactions,
+      () => {
+        runAnalysisAndRender(false);
+      }
+    );
     AppState.isAiLoading = false;
     runAnalysisAndRender();
     updateModeSwitcherUI();

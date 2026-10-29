@@ -383,7 +383,7 @@ window.TangHai.Categorizer = {
         batchResults[merchantName] = {
           category: geminiCached.category,
           source: 'AI_GUESS',
-          sourceLabel: 'Gemini AI แยกให้',
+          sourceLabel: geminiCached.hint ? `วิเคราะห์อัตโนมัติ · ${geminiCached.hint}` : 'วิเคราะห์อัตโนมัติ',
           llmHint: geminiCached.hint || '',
           needsReview: false
         };
@@ -399,6 +399,7 @@ window.TangHai.Categorizer = {
         // ตรวจสอบบริบทการใช้จ่าย (ยอดเงิน และช่วงเวลา) เพื่อความแม่นยำสูงสุด
         const sampleTx = rawTransactions.find(t => (t.normKey || window.TangHai.MemoryStore.normalizeKey(t.description)) === merchantName);
         const contextCat = sampleTx ? inferContextCategory(sampleTx) : null;
+        const rawSampleDesc = sampleTx ? sampleTx.description : merchantName;
 
         if (contextCat) {
           batchResults[merchantName] = {
@@ -408,7 +409,7 @@ window.TangHai.Categorizer = {
             llmHint: geminiCached ? geminiCached.hint : contextCat.hint,
             needsReview: false
           };
-        } else if (isLikelyPersonalTransfer(merchantName)) {
+        } else if (isLikelyPersonalTransfer(rawSampleDesc)) {
           batchResults[merchantName] = {
             category: 'TRANSFER_PERSON',
             source: 'RULE',
@@ -492,7 +493,7 @@ window.TangHai.Categorizer = {
     return periods;
   },
 
-  async runGeminiLLMAnalysis(rawTransactions) {
+  async runGeminiLLMAnalysis(rawTransactions, onBatchProgress = null) {
     const aiCache = getAICache();
     const itemsToAsk = [];
     const seenKeys = new Set();
@@ -520,8 +521,8 @@ window.TangHai.Categorizer = {
       const matchedBasic = MERCHANT_AI_RULES.find(r => r.keywords.some(kw => upper.includes(kw.toUpperCase())));
       if (matchedBasic) continue;
 
-      // 6. ข้ามรายการที่เป็นโอนให้บุคคลธรรมดาชัดเจน (เพื่อไม่ให้แย่งโควตา Batch ของชื่อร้านค้า/บริษัท)
-      if (isLikelyPersonalTransfer(normKey)) continue;
+      // 6. ข้ามรายการที่เป็นโอนให้บุคคลธรรมดาชัดเจน (ตรวจจาก desc ต้นฉบับ เพื่อไม่ให้ตัดคำว่า "จ่ายบิล" ทิ้งก่อนตรวจ)
+      if (isLikelyPersonalTransfer(desc)) continue;
 
       // ส่งให้ AI ช่วยดูเฉพาะรายการที่ไม่คุ้นเคย หรือรายการที่เคยได้ UNKNOWN จากรอบก่อน
       if (!aiCache.merchants[normKey] || aiCache.merchants[normKey].category === 'UNKNOWN') {
@@ -643,6 +644,9 @@ window.TangHai.Categorizer = {
       }
 
       saveAICache(aiCache);
+      if (typeof onBatchProgress === 'function') {
+        onBatchProgress(bIdx + 1, batches.length);
+      }
     }
 
     return { cached: false, count: itemsToAsk.length };
