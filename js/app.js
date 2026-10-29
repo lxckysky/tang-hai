@@ -526,6 +526,20 @@ window.TangHai.setAnalysisMode = async function(mode) {
   }
 };
 
+window.TangHai.forceReanalyzeAI = async function() {
+  if (!AppState.rawTransactions || AppState.rawTransactions.length === 0) {
+    notify('กรุณาอัปโหลดสเตทเมนต์ก่อนกดวิเคราะห์');
+    return;
+  }
+  // 1. ล้างแคช AI ใน localStorage
+  window.TangHai.Categorizer?.clearAICache?.();
+  // 2. คำนวณใหม่ทันทีด้วยกฎล่าสุด
+  runAnalysisAndRender();
+  notify('ล้างแคช AI สำเร็จ กำลังเริ่มการวิเคราะห์ใหม่...');
+  // 3. สั่งเรียก Gemini วิเคราะห์ใหม่ทั้งหมด
+  await window.TangHai.setAnalysisMode('AI');
+};
+
 window.TangHai.closeApiKeyModal = function() {
   document.getElementById('apikey-modal')?.classList.add('hidden');
 };
@@ -1394,7 +1408,13 @@ async function triggerAutoAIAnalysis() {
     AppState.isAiLoading = false;
     updateModeSwitcherUI();
     hideAILoadingOverlay(false);
-    // fallback ใช้ Rule-based อย่างราบรื่น ไม่รบกวนผู้ใช้
+    console.warn('Auto AI analysis error:', err);
+    const msg = err.message || '';
+    if (msg.includes('503') || msg.includes('GEMINI_API_KEY')) {
+      notify('ยังไม่ได้ตั้งค่า GEMINI_API_KEY บน Vercel ระบบใช้การจัดหมวดด้วยกฎพื้นฐานแทน');
+    } else if (msg && !msg.includes('NEED_API_KEY')) {
+      notify(`AI ไม่สามารถวิเคราะห์ได้ (${msg.slice(0, 60)}) ระบบใช้กฎพื้นฐานแทน`);
+    }
   }
 }
 

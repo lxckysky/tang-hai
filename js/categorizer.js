@@ -19,7 +19,13 @@ const MERCHANT_AI_RULES = [
       'BEARHOUSE', 'GAGA', 'HAIDILAO', 'MO-MO', 'S&P', 'CHESTER', 'KOUEN',
       'BONCHON', 'BURGER KING', 'YAYOI', 'FUJI', 'OISHI', 'SUSHIRO', 'SUKI TEENOI', 'สุกี้ตี๋น้อย',
       'ข้าวมันไก่', 'ข้าวหมูแดง', 'ก๋วยเตี๋ยว', 'ตามสั่ง', 'หมูกระทะ', 'ส้มตำ', 'ชาไข่มุก', 'บาร์บีคิว',
-      'บุฟเฟต์', 'เบเกอรี่', 'BAKERY', 'KITCHEN', 'COFFEE', 'TEA', 'NOODLE', 'RESTAURANT', 'DINING', 'BISTRO'
+      'บุฟเฟต์', 'เบเกอรี่', 'BAKERY', 'KITCHEN', 'COFFEE', 'TEA', 'NOODLE', 'RESTAURANT', 'DINING', 'BISTRO',
+      // ร้านอาหาร/ของหวาน/สตรีทฟู้ด ยอดนิยมในไทย
+      'หนึ่ง นม นัว', 'นม นัว', 'นมสด', 'ขนมปัง', 'โทสต์', 'TOAST', 'บิงซู', 'โรตี',
+      'หมาล่า', 'MALA', 'หมาล่าฮับ', 'หม้อไฟ', 'ชาบู', 'สุกี้',
+      'โออิชิ', 'ราเมน', 'RAMEN', 'ราเมง',
+      'มหาเฮง', 'ข้าวเหนียว', 'ร้านค้าออมสิน', 'ร้านอาหาร', 'ครัว', 'ของหวาน', 'ขนมหวาน',
+      'ไอศกรีม', 'ไอติม', 'ICE CREAM', 'DESSERT', 'STEAK', 'สเต็ก', 'ลูกชิ้น'
     ],
     category: 'FOOD'
   },
@@ -39,10 +45,12 @@ const MERCHANT_AI_RULES = [
       'ARL', 'SRTET', 'รถไฟฟ้า', 'ทางด่วน', 'EXAT', 'EASY PASS', 'M-FLOW', 'TOLLWAY',
       'GRABTAXI', 'BOLT', 'PTT', 'OR OIL', 'CALTEX', 'SHELL', 'BANGCHAK', 'บางจาก',
       'SUSCO', 'PEA VOLTA', 'EV CHARGE', 'LINE MAN RIDE', 'วิน', 'แท็กซี่', 'TAXI', 'น้ำมัน',
-      // เพิ่ม: ปั๊มน้ำมัน ภาษาไทย / ชื่อย่อ
       'ปตท', 'พีทีที', 'PTT STATION', 'RITTIDOL OIL', 'ESSO', 'ESTACIÓN',
       'น้ำมันงาม', 'OIL LTD', 'OIL PART', 'สถานีน้ำมัน', 'ปั๊มน้ำมัน',
-      'GAS STATION', 'FUEL', 'PETROLEUM'
+      'GAS STATION', 'FUEL', 'PETROLEUM',
+      // บริการที่จอดรถ และยานพาหนะเดินทาง (JPARK / GCOO / สกู๊ตเตอร์)
+      'JENKONGKLAI', 'เจนก้องไกล', 'JPARK', 'ที่จอดรถ', 'ค่าจอดรถ', 'CAR PARK', 'PARKING',
+      'GCOO', 'SCOOTER', 'สกู๊ตเตอร์', 'BEAM', 'เช่ารถ', 'CAR RENTAL'
     ],
     category: 'TRANSPORT'
   },
@@ -51,7 +59,10 @@ const MERCHANT_AI_RULES = [
       'KLONGLUANG PHARMACY', 'ร้านยา', 'CHULALONGKORN UNIVERSITY BOOK', 'BOOK CE', 'MAKALIN CLINIC', 'CLINIC', 'HOSPITAL',
       'PHARMACY', 'SE-ED', 'NAIIN', 'B2S', 'KINOKUNIYA', 'จุฬา', 'ธรรมศาสตร์', 'มหาวิทยาลัย',
       'โรงพยาบาล', 'คลินิก', 'ศิริราช', 'จุฬาลงกรณ์', 'กรุงเทพ', 'รามา', 'BDMS', 'ฟาสซิโน',
-      'WATSONS', 'BOOTS'
+      'WATSONS', 'BOOTS',
+      // การแพทย์/เวชภัณฑ์/สุขภาพ
+      'CONSORTIUM OF THAI MEDICA', 'THAI MEDICA', 'MEDICA', 'MEDICAL', 'CONSORTIUM',
+      'อัลติเมด', 'ULTIMED', 'เวชกรรม', 'ทันตกรรม', 'เภสัช', 'LABORATORY', 'แล็บ'
     ],
     category: 'EDUCATION_HEALTH'
   },
@@ -60,7 +71,9 @@ const MERCHANT_AI_RULES = [
       'TIKTOK SHOP', 'PIPO', 'UNIQLO', 'ยูนิโคล่', 'ซัมมิท ไพน์เฮ', 'OMISE', 'SHOPEE', 'LAZADA', 'ยูอาร์เดอะ',
       'PINEHURST', 'LIANLIAN', 'อัลติเมต', 'ZARA', 'H&M', 'MUJI', 'DECATHLON',
       'MR.DIY', 'MR DIY', 'HOMEPRO', 'CENTRAL', 'THE MALL', 'EVEANDBOY', 'BEAUTRIUM',
-      'IKEA', 'APPLE.COM', 'STEAM', 'PLAYSTATION'
+      'IKEA', 'APPLE.COM', 'STEAM', 'PLAYSTATION',
+      // โรงภาพยนตร์และความบันเทิง
+      'เอส เอฟ ซีเนม่า', 'เอส เอฟ', 'SF CINEMA', 'CINEMA', 'ซีเนม่า', 'MAJOR CINEPLEX', 'เมเจอร์', 'CINEPLEX', 'โรงหนัง', 'เดอะมอลล์'
     ],
     category: 'SHOPPING'
   },
@@ -70,8 +83,8 @@ const MERCHANT_AI_RULES = [
       'AIS POSTPAID', 'AIS FIBRE', 'TRUE MOVE', 'TRUE ONLINE', 'DTAC', '3BB',
       'NT BROADBAND', 'NETFLIX', 'SPOTIFY', 'YOUTUBE', 'GOOGLE STORAGE', 'ICLOUD',
       'เดอะเรสซิเดนซ์', 'เรสซิเดนซ์', 'RESIDENCE', 'หอพัก', 'อพาร์ตเมนต์', 'คอนโด', 'ค่าเช่า', 'ส่วนกลาง', 'APARTMENT', 'CONDO',
-      // เพิ่ม: นิติบุคคลอาคารชุด / หมู่บ้าน
       'นิติบุคคล', 'อาคารชุด', 'นิติบุคคลอาคาร', 'JURISTIC', 'VILLAGE', 'ESTATE',
+      'ไอดีโอ', 'IDEO', 'ASHTON', 'LPN', 'LUMPINI',
       'ค่าน้ำ', 'ค่าไฟ', 'ค่าส่วนกลาง', 'ค่าบริการ', 'ค่าเน็ต', 'ค่าโทรศัพท์'
     ],
     category: 'BILLS'
@@ -88,7 +101,7 @@ const MERCHANT_AI_RULES = [
 const TITLE_PREFIX_REGEX = /^(?:ด\.ญ\.|ด\.ช\.|เด็กหญิง|เด็กชาย|นาย|นางสาว|น\.ส\.|นาง|MR\.|MS\.|MRS\.|MISS)\s*/i;
 const PERSON_KEYWORD_REGEX = /(?:นาย|นางสาว|น\.ส\.|นาง|ด\.ช\.|ด\.ญ\.|เด็กชาย|เด็กหญิง|MR\.|MS\.|MRS\.|MISS|PromptPay|พร้อมเพย์|โอนไป|โอนให้|บุคคล)/i;
 // คำที่บ่งชี้ว่าเป็นร้านค้า/นิติบุคคล ไม่ใช่บุคคลธรรมดา
-const BUSINESS_KEYWORD_REGEX = /(?:บจก\.|จำกัด|หจก\.|บมจ\.|ห้างหุ้นส่วน|SHOP|STORE|CAFE|CLINIC|HOSPITAL|MARKET|FOOD|CO\.?,?LTD|SERVICE|STATION|จ่ายบิล|PAY BILL|BILL PAY|นิติบุคคล|อาคารชุด|ร้าน|สาขา|BRANCH|PART\.|LTD\.|PLC\.|INC\.|CORP|ฮับ|HUB|RAMEN|ราเมน|ปตท|PTT|น้ำมัน|OIL|GAS|PLAZA|CENTER|MART|CAFE|COFFEE|KITCHEN|RESTO)/i;
+const BUSINESS_KEYWORD_REGEX = /(?:บจก\.|จำกัด|หจก\.|บมจ\.|ห้างหุ้นส่วน|SHOP|STORE|CAFE|CLINIC|HOSPITAL|MARKET|FOOD|CO\.?,?LTD|SERVICE|STATION|จ่ายบิล|PAY BILL|BILL PAY|นิติบุคคล|อาคารชุด|ร้าน|สาขา|BRANCH|PART\.|LTD\.|PLC\.|INC\.|CORP|PUBLIC\s*COMPANY|ฮับ|HUB|RAMEN|ราเมน|ปตท|PTT|น้ำมัน|OIL|GAS|PLAZA|CENTER|MART|CAFE|COFFEE|KITCHEN|RESTO|หนึ่ง|นม|นัว|หมาล่า|MALA|สุกี้|ชาบู|มหาเฮง|ข้าวเหนียว|ออมสิน|ซีเนม่า|CINEMA|CINEPLEX|เอส เอฟ|SF CINEMA|เมเจอร์|MAJOR|MEDICA|MEDICAL|อัลติเมด|ULTIMED|JENKONGKLAI|JPARK|PARKING|CAR PARK|ที่จอดรถ|GCOO|SCOOTER|สกู๊ตเตอร์|BEAM)/i;
 // ชื่อไทย 2 คำ (แต่ถ้ามีคำบ่งบอกธุรกิจแล้ว จะ return false ก่อนถึงตรงนี้)
 const THAI_NAME_PATTERN = /[ก-๙]{2,}\s+[ก-๙]{2,}/;
 
@@ -512,6 +525,7 @@ window.TangHai.Categorizer = {
         seenKeys.add(normKey);
         itemsToAsk.push({
           key: normKey,
+          desc: desc,
           amount: tx.debit,
           time: tx.time,
           date: tx.date
@@ -537,9 +551,16 @@ window.TangHai.Categorizer = {
         });
         if (serverRes.ok) {
           parsed = await serverRes.json();
+        } else {
+          const errData = await serverRes.json().catch(() => ({}));
+          console.warn('Vercel Gemini API error:', errData);
+          throw new Error(errData.error || `Server responded with ${serverRes.status}`);
         }
       } catch (e) {
-        // กรณีไม่ได้รันบน Vercel จะสลับไปใช้คีย์ในเครื่องด้านล่างอัตโนมัติ
+        console.warn('Vercel Gemini call failed, checking fallback:', e);
+        if (!this.getApiKey()) {
+          throw e; // โยน error เพื่อให้ระบบแจ้งเตือนผู้ใช้ ไม่ใช่กลืนเงียบๆ
+        }
       }
     }
 
@@ -652,10 +673,13 @@ window.TangHai.Categorizer = {
     if (Array.isArray(parsed?.items)) {
       for (const item of parsed.items) {
         if (item.key) {
-          aiCache.merchants[item.key] = {
-            category: item.category || 'UNKNOWN',
-            hint: item.hint || ''
-          };
+          const cat = item.category || 'UNKNOWN';
+          const hint = item.hint || '';
+          aiCache.merchants[item.key] = { category: cat, hint };
+          const norm = window.TangHai.MemoryStore.normalizeKey(item.key);
+          if (norm && norm !== item.key) {
+            aiCache.merchants[norm] = { category: cat, hint };
+          }
         }
       }
     }

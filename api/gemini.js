@@ -68,31 +68,29 @@ export default async function handler(req, res) {
 งานที่ 1: วิเคราะห์รายการใช้จ่ายต่อไปนี้ และเลือก category ที่ตรงกับข้อเท็จจริงที่สุดจาก:
 ${defaultCatDesc.join(', ')}
 
-เกณฑ์การตัดสินใจ (ห้ามเดาสุ่ม อิงจากข้อเท็จจริงในชื่อรายการเท่านั้น):
-1. "จ่ายบิล ..." หมายความว่าจ่ายเงินให้ธุรกิจ/ร้านค้า/บริษัท ไม่ใช่บุคคล ให้วิเคราะห์ชื่อหลัง "จ่ายบิล" แล้วจัดหมวดตามประเภทธุรกิจ:
-   - จ่ายบิล + ชื่อร้านอาหาร (เช่น โออิชิ, หมาล่า, ราเมน, ก๋วยเตี๋ยว) → FOOD
-   - จ่ายบิล + ปตท / พีทีที / PTT / OIL / STATION / น้ำมัน → TRANSPORT
-   - จ่ายบิล + นิติบุคคล / อาคารชุด / คอนโด / ค่าส่วนกลาง → BILLS
-   - จ่ายบิล + ชื่อบริษัท (บจก. / จำกัด / LTD) → วิเคราะห์ธุรกิจหลักของบริษัทนั้น
-2. วิเคราะห์จากชื่อร้านค้า/ผู้รับ ใช้ความรู้เกี่ยวกับธุรกิจจริงในไทย:
-   - PTT, ปตท, พีทีที, BANGCHAK, บางจาก, SHELL, CALTEX, SUSCO, RITTIDOL OIL → TRANSPORT
-   - โออิชิ, หมาล่า, MK, ชาบู, ราเมน, RAMEN, ก๋วยเตี๋ยว, ข้าว, SUSHI, PIZZA → FOOD
-   - BTS, MRT, GRAB, Bolt, รถไฟ, ทางด่วน → TRANSPORT
-   - นิติบุคคลอาคารชุด, ส่วนกลาง, หอพัก, คอนโด, CONDO → BILLS
-   - การไฟฟ้า, ประปา, AIS, TRUE, DTAC, NETFLIX, SPOTIFY → BILLS
-3. "โอนไป SCB/KBNK/KTB + ชื่อนิติบุคคล/บริษัท" → จัดหมวดตามประเภทธุรกิจนั้น (ไม่ใช่ TRANSFER_PERSON)
-4. กรณีโอนเงินให้บุคคลธรรมดา (ชื่อ-นามสกุลจริง ไม่ใช่ชื่อร้านค้า หรือ PromptPay ไม่ระบุปลายทาง):
-   - ใช้ TRANSFER_PERSON เท่านั้น ห้ามเดาว่าเป็นค่าอาหารหรือค่าหอ
-5. ถ้าไม่สามารถระบุได้จากชื่อ ใส่ UNKNOWN
-
-**สำคัญ**: ก่อนตอบ UNKNOWN ให้ใช้ความรู้เกี่ยวกับบริษัทจดทะเบียน (SET/MAI), แบรนด์ไทย, และธุรกิจทั่วไปในประเทศไทยเพื่อระบุประเภท ถ้ายังไม่แน่ใจ ให้ค้นหาข้อมูลเพิ่มเติมก่อน
+เกณฑ์การตัดสินใจ (อิงจากข้อเท็จจริงในชื่อรายการและบริบทธุรกิจไทย):
+1. รายการที่มีคำว่า "จ่ายบิล" หรือชำระเงินให้ร้านค้า/บริษัท:
+   - "หนึ่ง นม นัว", "นมสด", "ขนมหวาน", "บิงซู", "เบเกอรี่" → FOOD (ของหวาน/เครื่องดื่ม)
+   - "หมาล่า", "หมาล่าฮับ", "หม้อไฟ", "ชาบู", "สุกี้", "โออิชิ", "ราเมน" → FOOD (ร้านอาหาร)
+   - "ข้าวเหนียว", "มหาเฮง", "ร้านค้าออมสิน", "ตามสั่ง", "ก๋วยเตี๋ยว" → FOOD (อาหารสตรีทฟู้ด)
+   - "JENKONGKLAI", "เจนก้องไกล", "JPARK", "ที่จอดรถ" → TRANSPORT (บริหารจัดการที่จอดรถ)
+   - "GCOO", "BEAM", "SCOOTER", "สกู๊ตเตอร์" → TRANSPORT (ยานพาหนะเดินทางระยะสั้น)
+   - "PTT", "ปตท", "พีทีที", "RITTIDOL OIL", "BANGCHAK", "บางจาก", "CALTEX", "SHELL", "น้ำมัน" → TRANSPORT (สถานีบริการน้ำมัน)
+   - "SF CINEMA", "เอส เอฟ ซีเนม่า", "MAJOR CINEPLEX", "เมเจอร์", "ซีเนม่า", "โรงภาพยนตร์" → SHOPPING (บันเทิง/ชมภาพยนตร์)
+   - "CONSORTIUM OF THAI MEDICA", "MEDICA", "MEDICAL", "อัลติเมด", "คลินิก", "โรงพยาบาล", "ร้านยา" → EDUCATION_HEALTH (สุขภาพ/เวชภัณฑ์)
+   - "นิติบุคคลอาคารชุด", "ไอดีโอ", "IDEO", "คอนโด", "หอพัก", "ค่าส่วนกลาง", "การไฟฟ้า", "ประปา" → BILLS (ค่าใช้จ่ายที่อยู่อาศัย/บิล)
+2. ธุรกิจและบริษัททั่วไป (บจก. / จำกัด / PUBLIC COMPANY / LTD):
+   - ให้วิเคราะห์ประเภทธุรกิจหลักจากชื่อบริษัท อย่าตอบ UNKNOWN ทันที ให้คิดตามประเภทธุรกิจจริงในประเทศไทย
+3. โอนเงินให้บุคคลธรรมดา (ชื่อ-นามสกุลจริง บุคคลทั่วไป):
+   - ให้จัดเป็น TRANSFER_PERSON เท่านั้น
+4. ถ้ารายการใดไม่สามารถระบุได้จริงๆ ให้ใส่ UNKNOWN
 
 รายการที่ต้องวิเคราะห์:
 ${JSON.stringify(safeItems)}
 
 งานที่ 2: สรุปภาพรวมพฤติกรรมการเงินสั้นๆ 3 ข้อ (summaryBullets) จากข้อมูลที่มีจริง (ห้ามกุเรื่อง)
 
-ตอบกลับเป็น JSON เท่านั้น (ไม่มีข้อความอื่น ไม่มี markdown):
+ตอบกลับเป็น JSON เท่านั้น:
 {"items":[{"key":"...","category":"...","hint":"..."}],"summaryBullets":["...","...","..."]}`;
     }
 
@@ -101,10 +99,8 @@ ${JSON.stringify(safeItems)}
       ? ['gemini-2.0-flash']
       : ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash'];
 
-    // ตรวจว่ามีรายการที่เป็น "ชื่อบริษัทไม่รู้จัก" หรือเปล่า
-    // ถ้ามี → เปิด Google Search Grounding ให้ Gemini ค้นหาข้อมูลก่อนตอบ
     const hasUnknownCompany = safeItems.some(item => {
-      const k = (item.key || '').toUpperCase();
+      const k = ((item.key || '') + ' ' + (item.desc || '')).toUpperCase();
       return k.includes('COMPANY') || k.includes('LIMITED') || k.includes('บจก') ||
              k.includes('PUBLIC') || k.includes('LTD') || k.includes('PART.');
     });
@@ -118,29 +114,37 @@ ${JSON.stringify(safeItems)}
           ? `https://aiplatform.googleapis.com/v1/publishers/google/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`
           : `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`;
 
-        // เปิด Google Search Grounding เมื่อมีชื่อบริษัทที่ไม่คุ้นเคย
-        // และใช้ gemini-2.0-flash ขึ้นไปเท่านั้น (1.5 flash ไม่รองรับ google_search tool)
         const supportsGrounding = !isVertexKey && (model === 'gemini-2.5-flash' || model === 'gemini-2.0-flash');
         const useGrounding = hasUnknownCompany && supportsGrounding;
 
         const payload = useGrounding
           ? {
-              // Grounding mode: ค้น Google ก่อนตอบ — ไม่ใช้ responseMimeType (incompatible with tools)
               contents: [{ role: 'user', parts: [{ text: promptText }] }],
               tools: [{ google_search: {} }],
               generationConfig: { temperature: 0.2 }
             }
           : {
-              // Standard mode: ตอบ JSON โดยตรง
               contents: [{ role: 'user', parts: [{ text: promptText }] }],
               generationConfig: { responseMimeType: 'application/json', temperature: 0.2 }
             };
 
-        const geminiRes = await fetch(url, {
+        let geminiRes = await fetch(url, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
         });
+
+        // ถ้าเรียกแบบมี Google Search Tool แล้วติด 400 ให้ retry แบบ standard json ทันที
+        if (!geminiRes.ok && useGrounding && (geminiRes.status === 400 || geminiRes.status === 404)) {
+          geminiRes = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              contents: [{ role: 'user', parts: [{ text: promptText }] }],
+              generationConfig: { responseMimeType: 'application/json', temperature: 0.2 }
+            })
+          });
+        }
 
         if (!geminiRes.ok) {
           const errBody = await geminiRes.text();
@@ -152,15 +156,11 @@ ${JSON.stringify(safeItems)}
         }
 
         const data = await geminiRes.json();
-        const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
-
-        if (useGrounding) {
-          // Grounding response เป็น text ธรรมดา — ดึง JSON block ออกมา
-          const jsonMatch = rawText.match(/\{[\s\S]*"items"[\s\S]*\}/);
-          parsedData = jsonMatch ? JSON.parse(jsonMatch[0]) : JSON.parse(rawText);
-        } else {
-          parsedData = JSON.parse(rawText);
-        }
+        const parts = data?.candidates?.[0]?.content?.parts || [];
+        const allText = parts.map(p => p.text || '').filter(Boolean).join('\n');
+        let cleaned = allText.replace(/```json/gi, '').replace(/```/g, '').trim();
+        const jsonMatch = cleaned.match(/\{[\s\S]*"items"[\s\S]*\}/);
+        parsedData = JSON.parse(jsonMatch ? jsonMatch[0] : cleaned);
         break;
       } catch (e) {
         lastError = e.message;
