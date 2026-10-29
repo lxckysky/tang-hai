@@ -97,7 +97,7 @@ ${JSON.stringify(safeItems)}
     const isVertexKey = apiKey.startsWith('AQ.');
     const candidateModels = isVertexKey
       ? ['gemini-2.0-flash']
-      : ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash'];
+      : ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-2.0-flash-lite', 'gemini-2.5-flash'];
 
     const hasUnknownCompany = safeItems.some(item => {
       const k = ((item.key || '') + ' ' + (item.desc || '')).toUpperCase();
@@ -114,7 +114,7 @@ ${JSON.stringify(safeItems)}
           ? `https://aiplatform.googleapis.com/v1/publishers/google/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`
           : `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`;
 
-        const supportsGrounding = !isVertexKey && (model === 'gemini-2.5-flash' || model === 'gemini-2.0-flash');
+        const supportsGrounding = !isVertexKey && (model === 'gemini-2.0-flash' || model === 'gemini-2.5-flash');
         const useGrounding = hasUnknownCompany && supportsGrounding;
 
         const payload = useGrounding
@@ -149,7 +149,8 @@ ${JSON.stringify(safeItems)}
         if (!geminiRes.ok) {
           const errBody = await geminiRes.text();
           lastError = `Gemini API (${model}) Error ${geminiRes.status}: ${errBody}`;
-          if (geminiRes.status === 404 || geminiRes.status === 400) {
+          // ถ้า 429 (โควตาโมเดลเต็ม), 404, 400 หรือ 503 -> สลับไปลองโมเดลถัดไปทันที
+          if (geminiRes.status === 429 || geminiRes.status === 404 || geminiRes.status === 400 || geminiRes.status === 503) {
             continue;
           }
           break;

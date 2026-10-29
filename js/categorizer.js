@@ -615,7 +615,7 @@ window.TangHai.Categorizer = {
       const isVertexKey = apiKey.startsWith('AQ.');
       const candidateModels = isVertexKey
         ? ['gemini-2.0-flash']
-        : ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash'];
+        : ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-2.0-flash-lite', 'gemini-2.5-flash'];
 
       let lastError = null;
 
@@ -647,8 +647,8 @@ window.TangHai.Categorizer = {
                 throw new Error('Gemini API Error (403): สิทธิ์การเข้าถึงถูกปฏิเสธ หรือยังไม่ได้เปิด Generative Language API');
               }
             }
-            if (response.status === 404 || response.status === 400) {
-              lastError = new Error(`Gemini API Error (${response.status})`);
+            if (response.status === 429 || response.status === 404 || response.status === 400 || response.status === 503) {
+              lastError = new Error(`Gemini API Error (${response.status}) on ${model}`);
               continue;
             }
             throw new Error(`Gemini API Error (${response.status})`);
