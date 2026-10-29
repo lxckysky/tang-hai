@@ -720,6 +720,18 @@ window.TangHai.Categorizer = {
     const debits = transactions.filter(t => t.debit > 0 && t.category !== 'SELF_TRANSFER');
     const totalSpend = debits.reduce((s, t) => s + t.debit, 0);
 
+    const credits = transactions.filter(t => (t.credit || 0) > 0);
+    const totalIncome = credits.reduce((s, t) => s + (t.credit || 0), 0);
+
+    if (totalIncome > 0 && totalSpend > 0) {
+      const netFlow = totalIncome - totalSpend;
+      if (netFlow >= 0) {
+        bullets.push(`กระแสเงินสดสุทธิเป็นบวก +฿${netFlow.toLocaleString('th-TH', { minimumFractionDigits: 2 })} (เงินเข้ามากกว่าเงินออก)`);
+      } else {
+        bullets.push(`กระแสเงินสดสุทธิติดลบ -฿${Math.abs(netFlow).toLocaleString('th-TH', { minimumFractionDigits: 2 })} (เงินออกมากกว่าเงินเข้า มีการใช้เงินคงเหลือเดิมในบัญชี)`);
+      }
+    }
+
     const uniqueDates = new Set(debits.map(t => t.date)).size || 1;
     if (totalSpend > 0) {
       const dailyAvg = totalSpend / uniqueDates;

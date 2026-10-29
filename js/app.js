@@ -624,6 +624,8 @@ function renderOverviewMetrics() {
 
   const elCountAll = document.getElementById('count-all');
   if (elCountAll) elCountAll.textContent = txs.length;
+  const elCountIncome = document.getElementById('count-income');
+  if (elCountIncome) elCountIncome.textContent = txs.filter(t => (t.credit || 0) > 0 || t.category === 'INCOME').length;
   const elCountPerson = document.getElementById('count-person');
   if (elCountPerson) elCountPerson.textContent = personCount;
   const elCountUnknown = document.getElementById('count-unknown');
@@ -1031,6 +1033,7 @@ function renderTransactionTable() {
 
   const filtered = AppState.transactions.filter(tx => {
     if (AppState.hideSelfTransfers && tx.category === 'SELF_TRANSFER') return false;
+    if (AppState.activeFilter === 'INCOME' && (tx.category !== 'INCOME' && (tx.credit || 0) <= 0)) return false;
     if (AppState.activeFilter === 'TRANSFER_PERSON' && tx.category !== 'TRANSFER_PERSON') return false;
     if (AppState.activeFilter === 'UNKNOWN' && tx.category !== 'UNKNOWN') return false;
     if (AppState.activeFilter === 'AI_GUESS' && tx.source !== 'AI_GUESS') return false;
