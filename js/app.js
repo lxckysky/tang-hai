@@ -80,7 +80,7 @@ function restoreSessionFromStorage() {
       AppState.rawTransactions = data.rawTransactions;
       AppState.analysisMode = 'AI';
       runAnalysisAndRender(false);
-      triggerAutoAIAnalysis(true);
+      triggerAutoAIAnalysis(false);
       return true;
     }
   } catch (e) {
@@ -127,7 +127,7 @@ window.TangHai.loadSampleData = function(bankType = 'SCB') {
   notify(bankType === 'KTB'
     ? 'โหลดข้อมูลตัวอย่าง Krungthai (Code-Level) สำเร็จ'
     : 'โหลดข้อมูลตัวอย่าง SCB (Full Details) สำเร็จ');
-  triggerAutoAIAnalysis(true);
+  triggerAutoAIAnalysis(false);
 };
 
 window.TangHai.initTermsModal = function() {
@@ -439,9 +439,9 @@ function updateModeSwitcherUI() {
   const aiStatusText = document.getElementById('ai-mode-status');
   if (!aiStatusText) return;
   if (AppState.isAiLoading) {
-    aiStatusText.textContent = 'กำลังวิเคราะห์รายการ...';
+    aiStatusText.textContent = 'Gemini AI กำลังค้นหาข้อมูลร้านค้าและวิเคราะห์พฤติกรรมการใช้จ่าย...';
   } else {
-    aiStatusText.textContent = 'วิเคราะห์อัตโนมัติ';
+    aiStatusText.textContent = 'วิเคราะห์พฤติกรรมการใช้จ่ายและค้นหาข้อมูลร้านค้าอัตโนมัติด้วย Gemini Flash';
   }
 }
 

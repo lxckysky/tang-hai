@@ -241,8 +241,14 @@
         <!-- กล่องสรุปพฤติกรรมการใช้เงินประจำเดือน (Minimal Clean) -->
         <section class="bg-white border border-zinc-200 rounded-2xl p-6 shadow-sm space-y-3">
           <div class="flex flex-wrap items-center justify-between gap-2">
-            <h2 class="text-sm font-semibold text-zinc-900">สรุปภาพรวมพฤติกรรมการเงิน</h2>
-            <span id="ai-mode-status" class="text-xs text-zinc-400">วิเคราะห์อัตโนมัติ</span>
+            <div>
+              <h2 class="text-sm font-semibold text-zinc-900">สรุปภาพรวมพฤติกรรมการเงิน (Gemini AI)</h2>
+              <p id="ai-mode-status" class="text-xs text-zinc-500 mt-0.5">วิเคราะห์พฤติกรรมการใช้จ่ายและค้นหาข้อมูลร้านค้าอัตโนมัติด้วย Gemini Flash</p>
+            </div>
+            <button onclick="window.TangHai.forceReanalyzeAI()"
+              class="px-2.5 py-1 text-xs rounded-lg border border-zinc-200 bg-zinc-50 hover:bg-zinc-100 text-zinc-700 font-medium transition">
+              วิเคราะห์ใหม่
+            </button>
           </div>
           <ul id="ai-summary-list" class="space-y-2.5"></ul>
         </section>

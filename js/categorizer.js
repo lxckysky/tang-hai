@@ -247,7 +247,7 @@ function isMatchingOwnerName(desc = '', ownerData = {}) {
   return tokens.some(t => t.length >= 3 && desc.includes(t));
 }
 
-const AI_CACHE_KEY = 'tanghai_gemini_cache_v5';
+const AI_CACHE_KEY = 'tanghai_gemini_cache_v6';
 const API_KEY_STORAGE = 'tanghai_gemini_api_key';
 
 function getStoredApiKey() {
@@ -390,7 +390,7 @@ window.TangHai.Categorizer = {
         batchResults[merchantName] = {
           category: geminiCached.category,
           source: 'AI_GUESS',
-          sourceLabel: geminiCached.hint ? `วิเคราะห์อัตโนมัติ · ${geminiCached.hint}` : 'วิเคราะห์อัตโนมัติ',
+          sourceLabel: geminiCached.hint ? `Gemini AI · ${geminiCached.hint}` : 'Gemini AI วิเคราะห์',
           llmHint: geminiCached.hint || '',
           needsReview: false
         };
@@ -456,7 +456,7 @@ window.TangHai.Categorizer = {
     return {
       transactions: finalTransactions,
       timeBreakdown: this.buildTimeOfDayBreakdown(finalTransactions),
-      aiSummaryBullets: this.buildAIMonthlySummary(finalTransactions),
+      aiSummaryBullets: this.buildAIMonthlySummary(finalTransactions, mode === 'AI' ? aiCache.summary : null),
       selfAccounts: this.summarizeSelfAccounts(finalTransactions, ownerNames),
       priorityGroups: this.buildPriorityUnknownGroups(finalTransactions),
       suggestedCategories: aiCache.suggestedCategories || [],
@@ -551,44 +551,64 @@ window.TangHai.Categorizer = {
       return { cached: true, count: 0 };
     }
 
-    // สร้างข้อมูลสรุปภาพรวม (Sanitized Overview Context) เพื่อให้ Gemini สรุปพฤติกรรมการใช้จ่ายได้เสมอ
-    // แม้กรณีที่รายการร้านค้าตรงกับกฎพื้นฐานครบทุกบรรทัดแล้ว (เช่น ข้อมูลตัวอย่าง SCB / KTB)
+    // สร้างข้อมูลสรุปภาพรวม (Sanitized Overview Context) อย่างละเอียดเพื่อให้ Gemini สรุปพฤติกรรมการใช้จ่ายเชิงลึกได้แม่นยำ
+    const prelimResult = this.analyzeTransactions(rawTransactions, window.TangHai.AppState?.meta || {}, 'AI');
+    const prelimTxs = prelimResult.transactions || [];
+    let totalIncome = 0;
     let totalSpend = 0;
     let selfTransferTotal = 0;
     let lateNightCount = 0;
     let lateNightTotal = 0;
-    const sampleDescriptions = [];
+    const catTotals = {};
+    const recipientTotals = {};
 
-    for (const tx of rawTransactions) {
+    for (const tx of prelimTxs) {
+      if (tx.credit > 0) {
+        totalIncome += tx.credit;
+        continue;
+      }
       if (tx.debit > 0) {
-        const desc = tx.description || '';
-        if (isMatchingOwnerName(desc, ownerNames)) {
+        if (tx.category === 'SELF_TRANSFER' || tx.splitFlag?.type === 'PASS_THROUGH') {
           selfTransferTotal += tx.debit;
           continue;
         }
         totalSpend += tx.debit;
+        const catLabel = window.TangHai.CATEGORIES?.[tx.category]?.label || tx.category;
+        if (!catTotals[catLabel]) catTotals[catLabel] = { count: 0, total: 0 };
+        catTotals[catLabel].count += 1;
+        catTotals[catLabel].total = Math.round((catTotals[catLabel].total + tx.debit) * 100) / 100;
+
+        const recKey = tx.userNote || tx.normKey || tx.description;
+        if (!recipientTotals[recKey]) recipientTotals[recKey] = { count: 0, total: 0, category: catLabel };
+        recipientTotals[recKey].count += 1;
+        recipientTotals[recKey].total = Math.round((recipientTotals[recKey].total + tx.debit) * 100) / 100;
+
         const h = parseInt((tx.time || '12:00').split(':')[0], 10);
         if (h >= 0 && h < 5) {
           lateNightCount += 1;
           lateNightTotal += tx.debit;
         }
-        if (sampleDescriptions.length < 15) {
-          sampleDescriptions.push({
-            desc: window.TangHai.MemoryStore.normalizeKey(desc),
-            amount: tx.debit,
-            time: tx.time
-          });
-        }
       }
     }
 
+    const topCategories = Object.entries(catTotals)
+      .sort((a, b) => b[1].total - a[1].total)
+      .map(([name, d]) => ({ category: name, count: d.count, total: d.total }));
+
+    const topMerchants = Object.entries(recipientTotals)
+      .sort((a, b) => b[1].total - a[1].total)
+      .slice(0, 8)
+      .map(([name, d]) => ({ name, count: d.count, total: d.total, category: d.category }));
+
     const overviewContext = {
       totalTransactions: rawTransactions.length,
+      totalIncome: Math.round(totalIncome * 100) / 100,
       truePersonalSpend: Math.round(totalSpend * 100) / 100,
       selfTransferExcluded: Math.round(selfTransferTotal * 100) / 100,
       lateNightSpendCount: lateNightCount,
       lateNightSpendTotal: Math.round(lateNightTotal * 100) / 100,
-      topSampleMerchants: sampleDescriptions
+      categoryBreakdown: topCategories,
+      topRecipients: topMerchants
     };
 
     const customCats = window.TangHai.getCustomCategoriesList ? window.TangHai.getCustomCategoriesList() : [];
@@ -843,7 +863,11 @@ window.TangHai.Categorizer = {
       .sort((a, b) => b.amount - a.amount);
   },
 
-  buildAIMonthlySummary(transactions) {
+  buildAIMonthlySummary(transactions, geminiSummaryBullets = null) {
+    if (Array.isArray(geminiSummaryBullets) && geminiSummaryBullets.length > 0) {
+      return geminiSummaryBullets;
+    }
+
     const bullets = [];
     const debits = transactions.filter(t => t.debit > 0 && t.category !== 'SELF_TRANSFER');
     const totalSpend = debits.reduce((s, t) => s + t.debit, 0);
