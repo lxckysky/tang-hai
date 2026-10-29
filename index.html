@@ -34,18 +34,23 @@
         display: none !important;
       }
     }
-    /* ซ่อน Nav จนกว่าจะมีข้อมูล (ป้องกัน lg:flex override hidden ก่อนอัพไฟล์) */
-    #desktop-nav.hidden {
+    /* ซ่อน Nav และ actions จนกว่าจะมีข้อมูล (ป้องกัน flex/grid override hidden) */
+    #desktop-nav.hidden,
+    #mobile-bottom-nav.hidden,
+    #header-actions.hidden {
       display: none !important;
     }
-    #mobile-bottom-nav.hidden {
-      display: none !important;
-    }
-    /* เมื่อ JS เปิด nav ให้ใช้ flex layout */
+    /* เมื่อ JS เปิด — กำหนด display layout ที่ถูกต้อง */
     #desktop-nav:not(.hidden) {
       display: flex;
     }
-    /* บนหน้าจอ PC และ iPad แนวนอน (>=1024px) ซ่อน Bottom Tab Bar */
+    #header-actions:not(.hidden) {
+      display: flex;
+    }
+    #mobile-bottom-nav:not(.hidden) {
+      display: block;
+    }
+    /* ซ่อน Bottom Tab Bar บน PC และ iPad แนวนอน (>=1024px) */
     @media (min-width: 1024px) {
       #mobile-bottom-nav {
         display: none !important;
@@ -107,25 +112,24 @@
       </nav>
 
       <div class="flex items-center gap-1.5 sm:gap-2 shrink-0">
-        <!-- ปุ่มคู่มือรูปแบบธนาคาร (แสดงบนจอแท็บเล็ต/คอม จอมือถือซ่อนเพื่อประหยัดพื้นที่) -->
+        <!-- ปุ่มคู่มือรูปแบบธนาคาร — ซ่อนบน mobile เพราะมีในหน้า upload แทน -->
         <button onclick="window.TangHai.openBankGuideModal()"
           class="hidden sm:inline-flex px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-lg border border-zinc-200 bg-white hover:bg-zinc-50 text-[11px] sm:text-xs font-medium text-zinc-700 transition shrink-0" title="ตรวจสอบธนาคารและรูปแบบคอลัมน์ที่รองรับ">
-          <span class="hidden xl:inline">รูปแบบที่รองรับ</span>
-          <span class="xl:hidden">รูปแบบ</span>
+          รูปแบบที่รองรับ
         </button>
 
-        <div id="header-actions" class="hidden flex items-center gap-1.5 sm:gap-2 shrink-0">
-          <!-- ปุ่มสลับโหมด พื้นฐาน vs Gemini AI (Responsive ย่อข้อความบนจอเล็ก) -->
-          <div class="flex items-center bg-zinc-100 p-0.5 sm:p-1 rounded-xl border border-zinc-200 shrink-0">
+        <div id="header-actions" class="hidden items-center gap-1.5 sm:gap-2 shrink-0">
+          <!-- ปุ่มสลับโหมด พื้นฐาน vs Gemini AI -->
+          <div class="flex items-center bg-zinc-100 p-0.5 rounded-xl border border-zinc-200 shrink-0">
             <button id="mode-btn-basic" onclick="window.TangHai.setAnalysisMode('BASIC')"
-              class="px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-lg text-[11px] sm:text-xs font-semibold bg-zinc-900 text-white shadow-sm transition">
-              <span class="hidden xl:inline">โหมดพื้นฐาน</span>
-              <span class="xl:hidden">พื้นฐาน</span>
+              class="px-2 py-1 rounded-lg text-[11px] font-semibold bg-zinc-900 text-white shadow-sm transition">
+              <span class="hidden sm:inline">พื้นฐาน</span>
+              <span class="sm:hidden">B</span>
             </button>
             <button id="mode-btn-ai" onclick="window.TangHai.setAnalysisMode('AI')"
-              class="px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-lg text-[11px] sm:text-xs font-medium text-zinc-600 hover:text-zinc-900 transition">
-              <span class="hidden xl:inline">โหมด Gemini AI</span>
-              <span class="xl:hidden">AI</span>
+              class="px-2 py-1 rounded-lg text-[11px] font-medium text-zinc-600 hover:text-zinc-900 transition">
+              <span class="hidden sm:inline">Gemini AI</span>
+              <span class="sm:hidden">AI</span>
             </button>
           </div>
 
@@ -134,12 +138,12 @@
             CSV
           </button>
           <button onclick="window.TangHai.clearSession()"
-            class="px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-lg border border-zinc-200 bg-white hover:bg-rose-50 hover:text-rose-600 text-[11px] sm:text-xs font-medium text-zinc-600 transition shrink-0">
-            ล้างข้อมูล
+            class="px-2 py-1 rounded-lg border border-zinc-200 bg-white hover:bg-rose-50 hover:text-rose-600 text-[11px] font-medium text-zinc-600 transition shrink-0">
+            ล้าง
           </button>
-          <label class="cursor-pointer px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-lg bg-zinc-900 hover:bg-zinc-800 text-[11px] sm:text-xs font-medium text-white transition shrink-0">
-            <span class="hidden xl:inline">+ เพิ่มสเตทเมนต์</span>
-            <span class="xl:hidden">+ เพิ่ม</span>
+          <label class="cursor-pointer px-2.5 py-1.5 rounded-lg bg-zinc-900 hover:bg-zinc-800 text-[11px] font-medium text-white transition shrink-0">
+            <span class="hidden sm:inline">+ เพิ่ม</span>
+            <span class="sm:hidden">+</span>
             <input type="file" accept=".pdf" class="pdf-append-input hidden" />
           </label>
         </div>
@@ -169,9 +173,9 @@
           <input type="file" accept=".pdf" class="pdf-file-input hidden" />
         </label>
 
-        <div class="pt-2 flex flex-col items-center gap-2 text-center text-xs text-zinc-500">
+        <div class="pt-2 flex flex-col items-center gap-3 text-center text-xs text-zinc-500">
           <span>ไม่มีไฟล์ในเครื่อง? ทดลองด้วยข้อมูลตัวอย่าง:</span>
-          <div class="flex items-center gap-3">
+          <div class="flex flex-wrap justify-center items-center gap-3">
             <button onclick="window.TangHai.loadSampleData('SCB')"
               class="text-zinc-800 hover:text-zinc-950 underline underline-offset-4 font-medium transition">
               สเตทเมนต์ SCB (Full Details)
@@ -182,6 +186,10 @@
               สเตทเมนต์ KTB (Code-Level)
             </button>
           </div>
+          <button onclick="window.TangHai.openBankGuideModal()"
+            class="sm:hidden mt-1 px-3 py-1.5 rounded-lg border border-zinc-200 bg-white text-xs font-medium text-zinc-700 transition">
+            ดูรูปแบบที่รองรับ
+          </button>
         </div>
       </div>
     </section>
@@ -424,7 +432,7 @@
   </main>
 
   <!-- แถบเมนูด้านล่างสำหรับ iPhone, มือถือ และ iPad แนวตั้ง (Bottom Tab Bar) -->
-  <nav id="mobile-bottom-nav" class="hidden lg:hidden fixed bottom-0 inset-x-0 z-40 bg-white/95 backdrop-blur border-t border-zinc-200 px-2 pt-2 safe-bottom">
+  <nav id="mobile-bottom-nav" class="hidden fixed bottom-0 inset-x-0 z-40 bg-white/95 backdrop-blur border-t border-zinc-200 px-2 pt-2 safe-bottom">
     <div class="grid grid-cols-4 gap-1 max-w-md mx-auto">
       <button data-page="OVERVIEW" onclick="window.TangHai.switchPage('OVERVIEW')"
         class="mobile-nav-btn py-2 px-1 rounded-xl text-xs font-semibold bg-zinc-900 text-white text-center transition">
