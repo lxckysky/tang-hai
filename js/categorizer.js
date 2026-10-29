@@ -93,13 +93,64 @@ function isLikelyPersonalTransfer(desc = '') {
   return false;
 }
 
+const BANK_TRANSACTION_CODE_RULES = [
+  // 1. ถอนเงินสด / ตู้ ATM / CDM
+  {
+    category: 'CASH_ATM',
+    label: 'กดเงินสด ATM / CDM',
+    hint: 'ถอนเงินสด / ตู้ ATM / CDM',
+    regex: /\b(ATM|CW|WDL|CSH|CASH|CDM|CARDLESS|ถอนเงินสด|เบิกเงินสด|WITHDRAWAL)\b/i
+  },
+  // 2. รูดบัตรเดบิต / ช้อปปิ้งหน้าร้าน / EDC / POS
+  {
+    category: 'SHOPPING',
+    label: 'ช้อปปิ้ง (รูดบัตร/EDC)',
+    hint: 'ชำระค่าสินค้าผ่านเครื่อง EDC / บัตรเดบิต',
+    regex: /\b(POS|EDC|PUR|PURCHASE|DEBIT\s*CARD|รูดบัตร|ซื้อสินค้า)\b/i
+  },
+  // 3. หักบัญชีอัตโนมัติ / ชำระบิล (Direct Debit / Auto Debit)
+  {
+    category: 'BILLS',
+    label: 'บิลหักบัญชีอัตโนมัติ (D/D)',
+    hint: 'หักบัญชีเงินฝากอัตโนมัติ / ชำระบิล',
+    regex: /\b(D\/D|DD|DIRECT\s*DEBIT|AUTO\s*DEBIT|BILL\s*PAYMENT|หักบัญชี|ชำระบิล)\b/i
+  },
+  // 4. ค่าธรรมเนียมธนาคาร
+  {
+    category: 'BILLS',
+    label: 'ค่าธรรมเนียมธนาคาร',
+    hint: 'ค่าธรรมเนียมรักษาบัญชี/รายปี/บริการ',
+    regex: /\b(FEE|CHARGE|DUTY|ANNUAL\s*FEE|ค่าธรรมเนียม)\b/i
+  },
+  // 5. ดอกเบี้ยรับ
+  {
+    category: 'INCOME',
+    label: 'ดอกเบี้ยเงินฝาก',
+    hint: 'ดอกเบี้ยเงินฝากธนาคาร',
+    regex: /\b(INT|INTEREST|ดอกเบี้ย)\b/i
+  }
+];
+
+function inferByBankCode(tx = {}) {
+  const fullText = [tx.code || '', tx.channel || '', tx.description || ''].join(' ');
+  for (const rule of BANK_TRANSACTION_CODE_RULES) {
+    if (rule.regex.test(fullText)) {
+      return {
+        category: rule.category,
+        label: rule.label,
+        hint: rule.hint
+      };
+    }
+  }
+  return null;
+}
+
 function inferContextCategory(tx = {}) {
   const desc = (tx.description || '').toUpperCase();
 
-  // 1. ตรวจจากชื่อช่องทาง/description ที่ชัดเจน เท่านั้น — ไม่เดาจากยอดเงิน/เวลา
-  if (tx.channel === 'CDM' || desc.includes('CARDLESS ATM')) {
-    return { category: 'CASH_ATM', label: 'กดเงินสด ATM', hint: 'กดเงินสด ATM / Cardless' };
-  }
+  // 1. ตรวจจาก Bank Code หรือชื่อช่องทาง
+  const codeMatch = inferByBankCode(tx);
+  if (codeMatch) return codeMatch;
 
   // 2. ค่าเดินทาง — ตรวจจากชื่อบริการที่ชัดเจนใน description
   if (desc.includes('GRABTAXI') || desc.includes('BOLT RIDE') || desc.includes('LINE MAN RIDE')) {
@@ -252,18 +303,6 @@ window.TangHai.Categorizer = {
         };
       }
 
-      if (tx.channel === 'CDM' || desc.toUpperCase().includes('CARDLESS ATM')) {
-        ruleHits++;
-        return {
-          ...tx,
-          normKey,
-          category: 'CASH_ATM',
-          source: 'RULE',
-          sourceLabel: 'กดเงินสด ATM',
-          needsReview: false
-        };
-      }
-
       const memoryMatch = window.TangHai.MemoryStore.findMatch(desc);
       if (memoryMatch) {
         memoryHits++;
@@ -274,6 +313,21 @@ window.TangHai.Categorizer = {
           userNote: tx.userNote || memoryMatch.alias,
           source: 'MEMORY',
           sourceLabel: `จำไว้: ${memoryMatch.alias}`,
+          needsReview: false
+        };
+      }
+
+      // ด่านถอดรหัสมาตรฐานธนาคาร (Bank Transaction Code) สำหรับ KTB, BBL, TTB, BAY
+      const bankCodeMatch = inferByBankCode(tx);
+      if (bankCodeMatch) {
+        ruleHits++;
+        return {
+          ...tx,
+          normKey,
+          category: bankCodeMatch.category,
+          source: 'RULE',
+          sourceLabel: bankCodeMatch.label,
+          llmHint: bankCodeMatch.hint,
           needsReview: false
         };
       }

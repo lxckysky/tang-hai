@@ -7,7 +7,7 @@
 window.TangHai = window.TangHai || {};
 
 const SESSION_STORAGE_KEY = 'tanghai_saved_session_v1';
-const CONSENT_STORAGE_KEY = 'tanghai_consent_accepted_v1';
+const CONSENT_STORAGE_KEY = 'tanghai_consent_accepted_v2';
 
 const AppState = {
   fileName: '',
@@ -98,10 +98,44 @@ window.TangHai.loadSampleData = function() {
   triggerAutoAIAnalysis();
 };
 
-window.TangHai.acceptConsent = function() {
+window.TangHai.initTermsModal = function() {
+  const agreed = localStorage.getItem(CONSENT_STORAGE_KEY);
+  const modal = document.getElementById('terms-modal');
+  if (!agreed && modal) {
+    modal.classList.remove('hidden');
+
+    const scrollBody = document.getElementById('terms-scroll-body');
+    const checkbox = document.getElementById('terms-checkbox');
+    const checkboxLabel = document.getElementById('terms-checkbox-label');
+    const scrollHint = document.getElementById('terms-scroll-hint');
+    const acceptBtn = document.getElementById('terms-accept-btn');
+
+    const checkScroll = () => {
+      if (!scrollBody || !checkbox) return;
+      const isBottom = scrollBody.scrollHeight - scrollBody.scrollTop <= scrollBody.clientHeight + 35;
+      if (isBottom && checkbox.disabled) {
+        checkbox.disabled = false;
+        if (checkboxLabel) checkboxLabel.className = 'text-xs text-zinc-900 font-semibold leading-relaxed';
+        if (scrollHint) {
+          scrollHint.textContent = '✅ ท่านได้อ่านข้อตกลงครบถ้วนแล้ว กรุณากดติ๊กยินยอมด้านล่างเพื่อเข้าสู่ระบบ';
+          scrollHint.className = 'text-xs text-emerald-800 bg-emerald-50 py-1.5 px-3 rounded-lg text-center font-medium';
+        }
+      }
+    };
+
+    scrollBody?.addEventListener('scroll', checkScroll);
+    checkbox?.addEventListener('change', () => {
+      if (acceptBtn) {
+        acceptBtn.disabled = !checkbox.checked;
+      }
+    });
+  }
+};
+
+window.TangHai.acceptFormalTerms = function() {
   localStorage.setItem(CONSENT_STORAGE_KEY, 'accepted');
-  document.getElementById('consent-banner')?.classList.add('hidden');
-  notify('บันทึกการอนุญาตจัดเก็บข้อมูลในเบราว์เซอร์เรียบร้อย');
+  document.getElementById('terms-modal')?.classList.add('hidden');
+  notify('ยินยอมรับข้อตกลงและนโยบายความเป็นส่วนตัวเรียบร้อย พร้อมใช้งานระบบ TangHai');
 };
 
 window.TangHai.handleAddCustomCategory = function() {
@@ -1415,10 +1449,8 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // แสดงแถบขออนุญาตจัดเก็บข้อมูลในเครื่อง (Consent Banner) หากยังไม่เคยกดยอมรับ
-  if (!localStorage.getItem(CONSENT_STORAGE_KEY)) {
-    document.getElementById('consent-banner')?.classList.remove('hidden');
-  }
+  // แสดงหน้าต่างข้อตกลงและนโยบายความเป็นส่วนตัว (Terms & Privacy Agreement Modal) หากยังไม่เคยยินยอม
+  window.TangHai.initTermsModal();
 
   // กู้คืนข้อมูลที่อัปโหลดไว้ล่าสุดอัตโนมัติ (เผลอกด Refresh ข้อมูลไม่หาย!)
   restoreSessionFromStorage();
