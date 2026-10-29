@@ -28,7 +28,8 @@ window.TangHai.MemoryStore = {
     let s = description.trim();
     s = s.replace(/WIDx\d+\/?/gi, '');
     s = s.replace(/Terminal\s*No\.\s*[A-Z0-9]+\/?/gi, '');
-    s = s.replace(/^(?:ชำระเงินค่าสินค้า\/บริการ|ชำระค่าสินค้า|จ่ายบิล|โอนเงินไป|โอนไป|โอนให้|รับโอนจาก|รับโอนเงินจาก|สแกนจ่าย|ชำระเงิน)\s+/i, '');
+    s = s.replace(/^เพื่อชำระ\s*Ref\s*[A-Z0-9]+\s+/i, '');
+    s = s.replace(/^(?:ชำระเงินค่าสินค้า\/บริการ|ชำระค่าสินค้า|จ่ายบิล|เพื่อชำระ|โอนเงินไป|โอนไป|โอนให้|รับโอนจาก|รับโอนเงินจาก|สแกนจ่าย|ชำระเงิน)\s+/i, '');
     s = s.replace(/\b(?:PromptPay|[A-Z]{2,6})\s*[Xx]\d{3,6}\b/gi, '');
     return s.replace(/\s+/g, ' ').trim() || description.trim();
   },

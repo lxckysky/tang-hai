@@ -98,6 +98,14 @@ const MERCHANT_AI_RULES = [
   }
 ];
 
+function stripBranchSuffixForRuleMatch(name = '') {
+  // ตัดชื่อสาขาห้างหรือสถานีรถไฟฟ้าที่ต่อท้ายหลังเครื่องหมาย "-" ออกก่อนตรวจ Keyword พื้นฐาน
+  // เช่น "โยกุรุโตะ-เอ็มอาร์ที จตุจักร" -> "โยกุรุโตะ" เพื่อไม่ให้คำว่า "-เอ็มอาร์ที" ถูกเข้าใจผิดว่าเป็นค่ารถไฟฟ้า
+  return String(name)
+    .replace(/-\s*(?:เอ็มอาร์ที|MRT|บีทีเอส|BTS|เดอะมอลล์|THE\s*MALL|เซ็นทรัล|CENTRAL|ซีคอน|SEACON|โลตัส|LOTUS|บิ๊กซี|BIG\s*C)[^\(\)]*/gi, ' ')
+    .trim();
+}
+
 const TITLE_PREFIX_REGEX = /^(?:ด\.ญ\.|ด\.ช\.|เด็กหญิง|เด็กชาย|นาย|นางสาว|น\.ส\.|นาง|MR\.|MS\.|MRS\.|MISS)\s*/i;
 const PERSON_KEYWORD_REGEX = /(?:นาย|นางสาว|น\.ส\.|นาง|ด\.ช\.|ด\.ญ\.|เด็กชาย|เด็กหญิง|MR\.|MS\.|MRS\.|MISS|PromptPay|พร้อมเพย์|โอนไป|โอนให้|บุคคล)/i;
 // คำที่บ่งชี้ว่าเป็นร้านค้า/นิติบุคคล ไม่ใช่บุคคลธรรมดา
@@ -108,10 +116,10 @@ const THAI_NAME_PATTERN = /[ก-๙]{2,}\s+[ก-๙]{2,}/;
 function isLikelyPersonalTransfer(desc = '') {
   if (!desc) return false;
   const clean = desc.trim();
+  // ถ้าขึ้นต้นด้วย "จ่ายบิล" หรือ "เพื่อชำระ" หรือมี "(ชื่อบัญชี:" คือการสแกนจ่ายร้านค้า (เช่น K-Shop / ถุงเงิน / แม่มณี) ไม่ใช่โอนให้บุคคลธรรมดา
+  if (/^(?:จ่ายบิล|เพื่อชำระ)\s/i.test(clean) || /\(\s*ชื่อ\s*บัญชี/i.test(clean)) return false;
   // ถ้ามีคำบ่งชี้ร้านค้า/บริษัท ไม่ใช่บุคคล
   if (BUSINESS_KEYWORD_REGEX.test(clean)) return false;
-  // ถ้าขึ้นต้นด้วย "จ่ายบิล" คือจ่ายให้ธุรกิจ ไม่ใช่บุคคล
-  if (/^จ่ายบิล\s/i.test(clean)) return false;
   if (PERSON_KEYWORD_REGEX.test(clean)) return true;
   const noAcct = clean.replace(/^[A-Z0-9\/\-]+\s*/i, '').replace(/x\d{4,}\s*/i, '').trim();
   if (PERSON_KEYWORD_REGEX.test(noAcct)) return true;
@@ -159,7 +167,9 @@ const BANK_TRANSACTION_CODE_RULES = [
 ];
 
 function inferByBankCode(tx = {}) {
-  const fullText = [tx.code || '', tx.channel || '', tx.description || ''].join(' ');
+  // ป้องกันไม่ให้ชื่อช่องทางสแกน QR ของ KBank ("EDC/K SHOP/MYQR") ถูกตีความผิดเป็นรูดบัตรช้อปปิ้ง EDC
+  const safeChannel = (tx.channel || '').replace(/EDC\/K\s*SHOP\/MYQR/gi, 'KSHOP_QR');
+  const fullText = [tx.code || '', safeChannel, tx.description || ''].join(' ');
   for (const rule of BANK_TRANSACTION_CODE_RULES) {
     if (rule.regex.test(fullText)) {
       return {
@@ -237,7 +247,7 @@ function isMatchingOwnerName(desc = '', ownerData = {}) {
   return tokens.some(t => t.length >= 3 && desc.includes(t));
 }
 
-const AI_CACHE_KEY = 'tanghai_gemini_cache_v4';
+const AI_CACHE_KEY = 'tanghai_gemini_cache_v5';
 const API_KEY_STORAGE = 'tanghai_gemini_api_key';
 
 function getStoredApiKey() {
@@ -345,18 +355,15 @@ window.TangHai.Categorizer = {
         };
       }
 
-      // ด่านถอดรหัสมาตรฐานธนาคาร (Bank Transaction Code) สำหรับ KTB, BBL, TTB, BAY
-      const bankCodeMatch = inferByBankCode(tx);
-      if (bankCodeMatch) {
-        ruleHits++;
+      // หากเป็นข้อความระบบที่ไม่มีชื่อร้านค้าเลย (เช่น "รายการผ่าน INTERNET") ให้จัดเป็น UNKNOWN เพื่อรอผู้ใช้ระบุเอง ไม่ให้ AI เดาเป็นช้อปปิ้ง
+      if (/^รายการผ่าน\s*INTERNET$/i.test(normKey)) {
         return {
           ...tx,
           normKey,
-          category: bankCodeMatch.category,
+          category: 'UNKNOWN',
           source: 'RULE',
-          sourceLabel: bankCodeMatch.label,
-          llmHint: bankCodeMatch.hint,
-          needsReview: false
+          sourceLabel: 'อื่นๆ (ไม่ระบุชื่อร้าน)',
+          needsReview: true
         };
       }
 
@@ -372,9 +379,9 @@ window.TangHai.Categorizer = {
     let humanReviewCount = 0;
 
     for (const merchantName of uniqueMerchants) {
-      const upperName = merchantName.toUpperCase();
+      const ruleTarget = stripBranchSuffixForRuleMatch(merchantName).toUpperCase();
       const matchedRule = MERCHANT_AI_RULES.find(r =>
-        r.keywords.some(kw => upperName.includes(kw.toUpperCase()))
+        r.keywords.some(kw => ruleTarget.includes(kw.toUpperCase()))
       );
 
       const geminiCached = mode === 'AI' ? aiCache.merchants?.[merchantName] : null;
@@ -513,11 +520,14 @@ window.TangHai.Categorizer = {
       const normKey = window.TangHai.MemoryStore.normalizeKey(desc);
       if (seenKeys.has(normKey)) continue;
 
+      // ข้ามข้อความที่ไม่มีชื่อร้านค้าเลย เช่น "รายการผ่าน INTERNET"
+      if (/^รายการผ่าน\s*INTERNET$/i.test(normKey)) continue;
+
       // 4. ข้ามรายการที่จำได้จากสมุดจำ
       if (window.TangHai.MemoryStore.findMatch(desc)) continue;
 
-      // 5. ข้ามรายการที่ตรงกับกฎร้านค้าพื้นฐานอยู่แล้ว
-      const upper = normKey.toUpperCase();
+      // 5. ข้ามรายการที่ตรงกับกฎร้านค้าพื้นฐานอยู่แล้ว (หลังตัดชื่อสาขาห้าง/สถานีออก)
+      const upper = stripBranchSuffixForRuleMatch(normKey).toUpperCase();
       const matchedBasic = MERCHANT_AI_RULES.find(r => r.keywords.some(kw => upper.includes(kw.toUpperCase())));
       if (matchedBasic) continue;
 
