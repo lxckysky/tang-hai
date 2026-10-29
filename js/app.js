@@ -540,8 +540,34 @@ window.TangHai.forceReanalyzeAI = async function() {
   await window.TangHai.setAnalysisMode('AI');
 };
 
+window.TangHai.openApiKeyModal = function() {
+  const input = document.getElementById('gemini-apikey-input');
+  if (input) input.value = window.TangHai.Categorizer?.getApiKey?.() || '';
+  const currentKey = window.TangHai.Categorizer?.getApiKey?.();
+  const statusEl = document.getElementById('apikey-current-status');
+  if (statusEl) {
+    statusEl.textContent = currentKey
+      ? `กำลังใช้ API Key ส่วนตัว: ${currentKey.slice(0, 8)}...${currentKey.slice(-4)}`
+      : 'กำลังใช้เซิร์ฟเวอร์ฟรีส่วนกลาง (Vercel Proxy)';
+  }
+  document.getElementById('apikey-modal')?.classList.remove('hidden');
+  setTimeout(() => input?.focus(), 50);
+};
+
 window.TangHai.closeApiKeyModal = function() {
   document.getElementById('apikey-modal')?.classList.add('hidden');
+};
+
+window.TangHai.clearCustomApiKey = function() {
+  localStorage.removeItem('tanghai_gemini_api_key');
+  const input = document.getElementById('gemini-apikey-input');
+  if (input) input.value = '';
+  const statusEl = document.getElementById('apikey-current-status');
+  if (statusEl) statusEl.textContent = 'กำลังใช้เซิร์ฟเวอร์ฟรีส่วนกลาง (Vercel Proxy)';
+  window.TangHai.Categorizer?.clearAICache?.();
+  notify('ลบ API Key ส่วนตัวแล้ว กลับไปใช้ระบบส่วนกลาง');
+  window.TangHai.closeApiKeyModal();
+  runAnalysisAndRender();
 };
 
 window.TangHai.saveApiKeyAndEnableAI = function() {
@@ -552,7 +578,9 @@ window.TangHai.saveApiKeyAndEnableAI = function() {
     return;
   }
   window.TangHai.Categorizer.setApiKey(key);
+  window.TangHai.Categorizer.clearAICache();
   window.TangHai.closeApiKeyModal();
+  notify('บันทึก API Key สำเร็จ กำลังเริ่มการวิเคราะห์ด้วย Gemini...');
   window.TangHai.setAnalysisMode('AI');
 };
 

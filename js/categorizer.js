@@ -538,11 +538,14 @@ window.TangHai.Categorizer = {
     }
 
     let parsed = null;
-
     const customCats = window.TangHai.getCustomCategoriesList ? window.TangHai.getCustomCategoriesList() : [];
+    const userApiKey = this.getApiKey();
 
-    // 1. ลองเรียกผ่าน Backend Serverless API (/api/gemini บน Vercel) ก่อน เพื่อให้ทุกคนใช้งานได้ทันทีโดยไม่ต้องกรอกคีย์
-    if (window.location.protocol.startsWith('http')) {
+    // 1. ถ้าผู้ใช้ตั้งค่า API Key ของตัวเองไว้ ให้เรียกตรงด้วยคีย์ของผู้ใช้เลย (ไม่ใช้เซิร์ฟเวอร์ส่วนกลาง)
+    if (userApiKey) {
+      parsed = await this.callGeminiDirect(itemsToAsk, customCats, userApiKey);
+    } else if (window.location.protocol.startsWith('http')) {
+      // 2. ถ้าไม่มีคีย์ส่วนตัว ให้เรียกผ่าน Vercel Serverless API Proxy
       try {
         const serverRes = await fetch('/api/gemini', {
           method: 'POST',
@@ -554,120 +557,18 @@ window.TangHai.Categorizer = {
         } else {
           const errData = await serverRes.json().catch(() => ({}));
           console.warn('Vercel Gemini API error:', errData);
-          throw new Error(errData.error || `Server responded with ${serverRes.status}`);
+          const err = new Error(errData.error || `Server responded with ${serverRes.status}`);
+          err.status = serverRes.status;
+          throw err;
         }
       } catch (e) {
-        console.warn('Vercel Gemini call failed, checking fallback:', e);
-        if (!this.getApiKey()) {
-          throw e; // โยน error เพื่อให้ระบบแจ้งเตือนผู้ใช้ ไม่ใช่กลืนเงียบๆ
-        }
+        console.warn('Vercel Gemini call failed:', e);
+        throw e;
       }
-    }
-
-    // 2. Fallback: กรณีเปิดไฟล์รันในเครื่องตัวเอง (file://) หรือทดสอบด้วยคีย์ใน Local Storage
-    if (!parsed) {
-      const apiKey = this.getApiKey();
-      if (!apiKey) {
-        const err = new Error('NEED_API_KEY');
-        err.code = 'NEED_API_KEY';
-        throw err;
-      }
-
-      const availableCats = [
-        'FOOD (อาหารและเครื่องดื่ม)',
-        'GROCERY (ของใช้/ของชำ/สะดวกซื้อ)',
-        'TRANSPORT (การเดินทาง/รถไฟฟ้า/น้ำมัน)',
-        'SHOPPING (ช้อปปิ้ง/ออนไลน์/เสื้อผ้า)',
-        'EDUCATION_HEALTH (การศึกษา/ยา/คลินิก/สุขภาพ)',
-        'BILLS (ค่าไฟ/ค่าเน็ต/ค่าหอ/บิล)',
-        'WALLET (เติมเงิน e-Wallet)',
-        'CASH_ATM (ถอนเงินสด)',
-        'TRANSFER_PERSON (โอนให้บุคคล/เพื่อน/บุคคลธรรมดา)',
-        'UNKNOWN (อื่นๆ)',
-        ...customCats.map(c => `${c.id} (${c.label})`)
-      ];
-
-      const promptText = `คุณคือผู้เชี่ยวชาญวิเคราะห์สเตทเมนต์ธนาคารไทย และระบบผู้ช่วยจัดหมวดหมู่การเงินส่วนบุคคลอัตโนมัติ
-งานที่ 1: วิเคราะห์รายการใช้จ่ายต่อไปนี้ แล้วเลือก category ที่ตรงกับข้อเท็จจริงที่สุดจาก: [${availableCats.join(', ')}]
-เกณฑ์การตัดสินใจ (ห้ามเดาสุ่ม อิงจากข้อเท็จจริงในชื่อรายการเท่านั้น):
-1. "จ่ายบิล ..." หมายความว่าจ่ายเงินให้ธุรกิจ/ร้านค้า/บริษัท ไม่ใช่บุคคล ให้วิเคราะห์ชื่อหลัง "จ่ายบิล":
-   - จ่ายบิล + ชื่อร้านอาหาร (โออิชิ, หมาล่า, ราเมน, ก๋วยเตี๋ยว, ข้าว, SUSHI, PIZZA) → FOOD
-   - จ่ายบิล + ปตท / พีทีที / PTT / OIL / STATION / น้ำมัน → TRANSPORT
-   - จ่ายบิล + นิติบุคคล / อาคารชุด / คอนโด / ค่าส่วนกลาง → BILLS
-   - จ่ายบิล + ชื่อบริษัท (บจก. / จำกัด / LTD) → วิเคราะห์ธุรกิจหลักของบริษัทนั้น
-2. วิเคราะห์ชื่อร้านค้า/ผู้รับด้วยความรู้เกี่ยวกับธุรกิจจริงในไทย:
-   - PTT, ปตท, พีทีที, BANGCHAK, บางจาก, SHELL, CALTEX, SUSCO, RITTIDOL OIL → TRANSPORT
-   - โออิชิ, หมาล่า, MK, ชาบู, ราเมน, RAMEN, ก๋วยเตี๋ยว, ข้าว, SUSHI, PIZZA → FOOD
-   - BTS, MRT, GRAB, Bolt, รถไฟ, ทางด่วน → TRANSPORT
-   - นิติบุคคลอาคารชุด, ส่วนกลาง, หอพัก, คอนโด → BILLS
-   - การไฟฟ้า, ประปา, AIS, TRUE, DTAC, NETFLIX, SPOTIFY → BILLS
-3. "โอนไป SCB/KBNK/KTB + ชื่อนิติบุคคล/บริษัท" → จัดหมวดตามประเภทธุรกิจ ไม่ใช่ TRANSFER_PERSON
-4. กรณีโอนเงินให้บุคคลธรรมดา (ชื่อ-นามสกุลจริง ไม่ใช่ชื่อร้านค้า) → TRANSFER_PERSON เท่านั้น
-5. ถ้าระบุไม่ได้จริงๆ → UNKNOWN
-
-รายการ: ${JSON.stringify(itemsToAsk.slice(0, 40))}
-
-งานที่ 2: สรุปภาพรวมพฤติกรรมการเงิน 3 ข้อ (summaryBullets) จากข้อมูลที่มีจริง (ห้ามกุเรื่อง)
-
-ตอบกลับเป็น JSON เท่านั้น:
-{"items":[{"key":"...","category":"...","hint":"..."}],"summaryBullets":["...","...","..."]}`;
-
-      const isVertexKey = apiKey.startsWith('AQ.');
-      const candidateModels = isVertexKey
-        ? ['gemini-2.0-flash']
-        : ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-2.0-flash-lite', 'gemini-2.5-flash'];
-
-      let lastError = null;
-
-      for (const model of candidateModels) {
-        try {
-          const url = isVertexKey
-            ? `https://aiplatform.googleapis.com/v1/publishers/google/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`
-            : `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`;
-
-          const payload = {
-            contents: [{ role: 'user', parts: [{ text: promptText }] }],
-            generationConfig: {
-              responseMimeType: 'application/json',
-              temperature: 0.2
-            }
-          };
-
-          const response = await fetch(url, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-          });
-
-          if (!response.ok) {
-            if (response.status === 403) {
-              if (isVertexKey) {
-                throw new Error('API Key บน Google Cloud (Vertex AI) ยังไม่ได้เปิดใช้งาน Service aiplatform.googleapis.com แนะนำให้ใช้ Google AI Studio Key แทน');
-              } else {
-                throw new Error('Gemini API Error (403): สิทธิ์การเข้าถึงถูกปฏิเสธ หรือยังไม่ได้เปิด Generative Language API');
-              }
-            }
-            if (response.status === 429 || response.status === 404 || response.status === 400 || response.status === 503) {
-              lastError = new Error(`Gemini API Error (${response.status}) on ${model}`);
-              continue;
-            }
-            throw new Error(`Gemini API Error (${response.status})`);
-          }
-
-          const data = await response.json();
-          parsed = JSON.parse(data?.candidates?.[0]?.content?.parts?.[0]?.text || '{}');
-          break;
-        } catch (e) {
-          lastError = e;
-          if (e.message.includes('403') || e.message.includes('Vertex AI')) {
-            throw e;
-          }
-        }
-      }
-
-      if (!parsed) {
-        throw (lastError || new Error('ไม่สามารถเชื่อมต่อ Gemini API ได้'));
-      }
+    } else {
+      const err = new Error('NEED_API_KEY');
+      err.code = 'NEED_API_KEY';
+      throw err;
     }
 
     if (Array.isArray(parsed?.items)) {
@@ -692,6 +593,104 @@ window.TangHai.Categorizer = {
 
     saveAICache(aiCache);
     return { cached: false, count: itemsToAsk.length };
+  },
+
+  async callGeminiDirect(itemsToAsk, customCats, apiKey) {
+    const availableCats = [
+      'FOOD (อาหารและเครื่องดื่ม)',
+      'GROCERY (ของใช้/ของชำ/สะดวกซื้อ)',
+      'TRANSPORT (การเดินทาง/รถไฟฟ้า/น้ำมัน)',
+      'SHOPPING (ช้อปปิ้ง/ออนไลน์/เสื้อผ้า)',
+      'EDUCATION_HEALTH (การศึกษา/ยา/คลินิก/สุขภาพ)',
+      'BILLS (ค่าไฟ/ค่าเน็ต/ค่าหอ/บิล)',
+      'WALLET (เติมเงิน e-Wallet)',
+      'CASH_ATM (ถอนเงินสด)',
+      'TRANSFER_PERSON (โอนให้บุคคล/เพื่อน/บุคคลธรรมดา)',
+      'UNKNOWN (อื่นๆ)',
+      ...customCats.map(c => `${c.id} (${c.label})`)
+    ];
+
+    const promptText = `คุณคือผู้เชี่ยวชาญวิเคราะห์สเตทเมนต์ธนาคารไทย และระบบผู้ช่วยจัดหมวดหมู่การเงินส่วนบุคคลอัตโนมัติ
+งานที่ 1: วิเคราะห์รายการใช้จ่ายต่อไปนี้ แล้วเลือก category ที่ตรงกับข้อเท็จจริงที่สุดจาก: [${availableCats.join(', ')}]
+เกณฑ์การตัดสินใจ:
+1. รายการที่มีคำว่า "จ่ายบิล" หรือชำระเงินให้ร้านค้า/บริษัท:
+   - "หนึ่ง นม นัว", "นมสด", "ขนมหวาน", "บิงซู", "เบเกอรี่" → FOOD
+   - "หมาล่า", "หมาล่าฮับ", "หม้อไฟ", "ชาบู", "สุกี้", "โออิชิ", "ราเมน" → FOOD
+   - "ข้าวเหนียว", "มหาเฮง", "ร้านค้าออมสิน", "ตามสั่ง", "ก๋วยเตี๋ยว" → FOOD
+   - "JENKONGKLAI", "เจนก้องไกล", "JPARK", "ที่จอดรถ" → TRANSPORT
+   - "GCOO", "BEAM", "SCOOTER", "สกู๊ตเตอร์" → TRANSPORT
+   - "PTT", "ปตท", "พีทีที", "RITTIDOL OIL", "BANGCHAK", "บางจาก", "CALTEX", "SHELL", "น้ำมัน" → TRANSPORT
+   - "SF CINEMA", "เอส เอฟ ซีเนม่า", "MAJOR CINEPLEX", "เมเจอร์", "ซีเนม่า" → SHOPPING
+   - "CONSORTIUM OF THAI MEDICA", "MEDICA", "MEDICAL", "อัลติเมด", "คลินิก", "โรงพยาบาล", "ร้านยา" → EDUCATION_HEALTH
+   - "นิติบุคคลอาคารชุด", "ไอดีโอ", "IDEO", "คอนโด", "หอพัก", "ค่าส่วนกลาง", "การไฟฟ้า", "ประปา" → BILLS
+2. ธุรกิจและบริษัททั่วไป (บจก. / จำกัด / PUBLIC COMPANY / LTD): วิเคราะห์ตามประเภทธุรกิจจริง
+3. โอนเงินให้บุคคลธรรมดา: ให้จัดเป็น TRANSFER_PERSON
+4. ถ้าระบุไม่ได้จริงๆ: UNKNOWN
+
+รายการ: ${JSON.stringify(itemsToAsk.slice(0, 40))}
+
+งานที่ 2: สรุปภาพรวมพฤติกรรมการเงิน 3 ข้อ (summaryBullets) จากข้อมูลที่มีจริง (ห้ามกุเรื่อง)
+
+ตอบกลับเป็น JSON เท่านั้น:
+{"items":[{"key":"...","category":"...","hint":"..."}],"summaryBullets":["...","...","..."]}`;
+
+    const isVertexKey = apiKey.startsWith('AQ.');
+    const candidateModels = isVertexKey
+      ? ['gemini-2.0-flash']
+      : ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-2.0-flash-lite', 'gemini-2.5-flash'];
+
+    let lastError = null;
+
+    for (const model of candidateModels) {
+      try {
+        const url = isVertexKey
+          ? `https://aiplatform.googleapis.com/v1/publishers/google/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`
+          : `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`;
+
+        const payload = {
+          contents: [{ role: 'user', parts: [{ text: promptText }] }],
+          generationConfig: {
+            responseMimeType: 'application/json',
+            temperature: 0.2
+          }
+        };
+
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        if (!response.ok) {
+          if (response.status === 403) {
+            if (isVertexKey) {
+              throw new Error('API Key บน Google Cloud (Vertex AI) ยังไม่ได้เปิดใช้งาน Service aiplatform.googleapis.com');
+            } else {
+              throw new Error('Gemini API Error (403): สิทธิ์การเข้าถึงถูกปฏิเสธ หรือยังไม่ได้เปิด Generative Language API');
+            }
+          }
+          if (response.status === 429 || response.status === 404 || response.status === 400 || response.status === 503) {
+            lastError = new Error(`Gemini API Error (${response.status}) on ${model}`);
+            continue;
+          }
+          throw new Error(`Gemini API Error (${response.status})`);
+        }
+
+        const data = await response.json();
+        const parts = data?.candidates?.[0]?.content?.parts || [];
+        const allText = parts.map(p => p.text || '').filter(Boolean).join('\n');
+        let cleaned = allText.replace(/```json/gi, '').replace(/```/g, '').trim();
+        const jsonMatch = cleaned.match(/\{[\s\S]*"items"[\s\S]*\}/);
+        return JSON.parse(jsonMatch ? jsonMatch[0] : cleaned);
+      } catch (e) {
+        lastError = e;
+        if (e.message.includes('403') || e.message.includes('Vertex AI')) {
+          throw e;
+        }
+      }
+    }
+
+    throw (lastError || new Error('ไม่สามารถเชื่อมต่อ Gemini API ได้'));
   },
 
   /**

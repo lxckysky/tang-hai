@@ -256,12 +256,17 @@
         <section class="bg-white border border-zinc-200 rounded-2xl p-6 shadow-sm space-y-3">
           <div class="flex flex-wrap items-center justify-between gap-2">
             <h2 class="text-sm font-semibold text-zinc-900">สรุปภาพรวมพฤติกรรมการเงิน</h2>
-            <div class="flex items-center gap-2">
+            <div class="flex flex-wrap items-center gap-2">
               <span id="ai-mode-status" class="text-xs text-zinc-500">โหมดแยกพื้นฐาน (Rule-Based เร็วทันที)</span>
               <button onclick="window.TangHai.forceReanalyzeAI()"
                 class="px-2.5 py-1 text-xs rounded-lg border border-zinc-200 bg-white hover:bg-zinc-50 text-zinc-700 font-medium transition"
                 title="ล้างแคชเดิมแล้วให้ Gemini วิเคราะห์ใหม่ทั้งหมด">
                 ล้างแคช AI & วิเคราะห์ใหม่
+              </button>
+              <button onclick="window.TangHai.openApiKeyModal()"
+                class="px-2.5 py-1 text-xs rounded-lg border border-zinc-200 bg-white hover:bg-zinc-50 text-zinc-700 font-medium transition"
+                title="ใส่ API Key ของคุณเองเพื่อใช้งานไม่จำกัดโควตา">
+                ตั้งค่า API Key
               </button>
             </div>
           </div>
@@ -599,26 +604,41 @@
       <div>
         <h3 class="text-sm font-semibold text-zinc-900">ตั้งค่า Gemini API Key</h3>
         <p class="text-xs text-zinc-500 mt-1 leading-relaxed">
-          คีย์นี้จะถูกเก็บไว้ในเบราว์เซอร์ของอุปกรณ์นี้เท่านั้น (Local Storage) เพื่อความปลอดภัยและไม่ให้คีย์หลุดขึ้น GitHub สาธารณะ
+          หากโควตาเซิร์ฟเวอร์ฟรีเต็มชั่วคราว คุณสามารถนำ API Key ของคุณเองมาใส่ได้ฟรี โดยคีย์จะถูกเก็บไว้ในเบราว์เซอร์เครื่องนี้เท่านั้น (Local Storage)
         </p>
+      </div>
+
+      <div class="p-2.5 rounded-xl bg-zinc-50 border border-zinc-200 text-[11px] text-zinc-600 space-y-1">
+        <div id="apikey-current-status" class="font-medium text-zinc-800">กำลังตรวจสอบสถานะ...</div>
+        <div>
+          <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" class="text-indigo-600 hover:text-indigo-800 underline font-medium">
+            คลิกที่นี่เพื่อรับ Gemini API Key ฟรีจาก Google AI Studio
+          </a> (ใช้งานฟรี 1,500 ครั้งต่อวัน)
+        </div>
       </div>
 
       <div class="space-y-1.5">
         <label class="text-xs font-medium text-zinc-700">Google Gemini API Key</label>
-        <input id="gemini-apikey-input" type="password" placeholder="วาง API Key ของคุณที่นี่..."
+        <input id="gemini-apikey-input" type="password" placeholder="AIzaSy..."
           onkeydown="if(event.key==='Enter') window.TangHai.saveApiKeyAndEnableAI()"
-          class="w-full bg-white border border-zinc-300 rounded-xl px-3.5 py-2.5 text-xs text-zinc-900 focus:outline-none focus:border-zinc-900" />
+          class="w-full bg-white border border-zinc-300 rounded-xl px-3.5 py-2.5 text-xs text-zinc-900 focus:outline-none focus:border-zinc-900 font-mono" />
       </div>
 
-      <div class="flex items-center justify-end gap-2 pt-1">
-        <button onclick="window.TangHai.closeApiKeyModal()"
-          class="px-3.5 py-2 rounded-xl border border-zinc-200 bg-white hover:bg-zinc-50 text-xs font-medium text-zinc-700 transition">
-          ยกเลิก
+      <div class="flex items-center justify-between gap-2 pt-1">
+        <button onclick="window.TangHai.clearCustomApiKey()"
+          class="px-2.5 py-2 text-xs font-medium text-rose-600 hover:text-rose-700 hover:bg-rose-50 rounded-xl transition" title="ลบคีย์ส่วนตัวและกลับไปใช้เซิร์ฟเวอร์ส่วนกลาง">
+          ลบคีย์
         </button>
-        <button onclick="window.TangHai.saveApiKeyAndEnableAI()"
-          class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold transition">
-          บันทึกและเปิดโหมด AI
-        </button>
+        <div class="flex items-center gap-2">
+          <button onclick="window.TangHai.closeApiKeyModal()"
+            class="px-3.5 py-2 rounded-xl border border-zinc-200 bg-white hover:bg-zinc-50 text-xs font-medium text-zinc-700 transition">
+            ยกเลิก
+          </button>
+          <button onclick="window.TangHai.saveApiKeyAndEnableAI()"
+            class="px-4 py-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-white text-xs font-semibold transition">
+            บันทึกคีย์
+          </button>
+        </div>
       </div>
     </div>
   </div>
