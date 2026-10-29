@@ -87,10 +87,15 @@ TangHai ถูกออกแบบด้วยปรัชญา **Privacy-Firs
 > **หน้าที่:** วิเคราะห์ธุรกรรม และจัดเข้า 10 หมวดหมู่หลักแบบ Fact-based (ไม่เดาสุ่ม)
 
 ### สถาปัตยกรรมการแยก 3 ชั้น (3-Tier Categorization):
-* **Tier 1: Deterministic Rules (เร็วระดับ 0 มิลลิวินาที & แม่น 100%)**
+* **Tier 1: Deterministic Rules & Bank Code Dictionary (เร็วระดับ 0 มิลลิวินาที & แม่น 100%)**
   - เงินเข้า (`credit > 0` หรือ `code === 'X1'`) $\rightarrow$ หมวด `INCOME` เสมอ
-  - ถอนเงินสด (`channel === 'CDM'` หรือมี `CARDLESS ATM`) $\rightarrow$ หมวด `CASH_ATM`
   - ตรวจพบใน **สมุดช่วยจำ (MemoryStore)** $\rightarrow$ ใช้หมวดหมู่และชื่อเล่นที่ผู้ใช้เคยบันทึกไว้ทันที
+  - **Bank Transaction Code Dictionary:** ถอดรหัสมาตรฐาน ISO Banking Codes ของธนาคารที่ไม่มีชื่อร้าน (KTB, BBL, TTB, BAY) เช่น:
+    - `POS` / `EDC` / `PUR` $\rightarrow$ `SHOPPING` (รูดบัตรเดบิตซื้อสินค้า)
+    - `ATM` / `CW` / `CDM` $\rightarrow$ `CASH_ATM` (กดเงินสด)
+    - `D/D` / `AUTO DEBIT` $\rightarrow$ `BILLS` (บิลหักบัญชีอัตโนมัติ)
+    - `FEE` $\rightarrow$ `BILLS` (ค่าธรรมเนียมธนาคาร)
+    - `INT` $\rightarrow$ `INCOME` (ดอกเบี้ยเงินฝาก)
   - โอนบัญชีตัวเอง $\rightarrow$ ตรวจจับชื่อ-นามสกุลจริงของผู้ใช้ (ไม่ใช้ Substring เดาสุ่ม) แล้วแยกออกเป็น `SELF_TRANSFER` เพื่อไม่ให้รายจ่ายบวม
 * **Tier 2: Deduplicated Keyword & Gemini AI Batch**
   - รวบรวมเฉพาะชื่อร้านค้า/ผู้รับที่ไม่ซ้ำกัน (`Set Deduplication`) เช่น โอน 7-Eleven 20 ครั้ง จะส่งวิเคราะห์เพียง 1 ครั้ง
