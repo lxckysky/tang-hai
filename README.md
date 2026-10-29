@@ -1,21 +1,21 @@
-# 🏦 TangHai (ตังค์หาย) — Privacy-First Multi-Bank Statement Analyzer & AI Categorizer
+# TangHai (ตังค์หาย) — Privacy-First Multi-Bank Statement Analyzer & AI Categorizer
 
 > **Web Programming · โจทย์ก่อนวันสัมภาษณ์ Young Webmaster Camp (YWC)**  
 > เว็บแอปพลิเคชันสำหรับปลดล็อก แกะรอย และจัดหมวดหมู่ไฟล์ e-Statement ธนาคาร (PDF) อัตโนมัติด้วยสถาปัตยกรรม **100% Client-Side Parsing** ผสาน **Zero-Config Hybrid AI Categorization (Google Gemini Flash)** เพื่อค้นหา "รายจ่ายใช้ชีวิตจริง (True Personal Spend)" โดยไม่ส่งไฟล์การเงินส่วนตัวออกนอกเครื่องผู้ใช้
 
 ---
 
-## 📌 ข้อมูลสำคัญสำหรับวันสัมภาษณ์ (YWC Submission Info)
+## ข้อมูลสำคัญสำหรับวันสัมภาษณ์ (YWC Submission Info)
 
 | สิ่งที่ต้องเตรียมมาวันสัมภาษณ์ | รายละเอียด |
 | :--- | :--- |
-| **🌐 Live URL (เปิดใช้งานได้จริง)** | **[https://tang-hai-nu.vercel.app/](https://tang-hai-nu.vercel.app/)** |
-| **💻 GitHub Link (Source Code)** | **[https://github.com/lxckysky/tang-hai](https://github.com/lxckysky/tang-hai)** |
-| **🛠️ Tech Stack** | **Frontend:** HTML5, Tailwind CSS (Mobile-First Responsive Design), Vanilla JavaScript (ES6+)<br>**PDF & Client-Side Engine:** Mozilla `PDF.js` (ถอดรหัสผ่านและสกัดพิกัดข้อความใน Browser RAM 100%)<br>**Backend / Serverless:** Vercel Serverless Functions (Node.js Runtime, ES Module)<br>**AI & LLM Model:** Google Gemini Flash API (`gemini-2.5-flash` / `gemini-2.0-flash` พร้อม Model Fallback)<br>**Persistence:** Browser `localStorage` (Zero-Database Privacy Architecture) |
+| **Live URL (เปิดใช้งานได้จริง)** | **[https://tang-hai-nu.vercel.app/](https://tang-hai-nu.vercel.app/)** |
+| **GitHub Link (Source Code)** | **[https://github.com/lxckysky/tang-hai](https://github.com/lxckysky/tang-hai)** |
+| **Tech Stack** | **Frontend:** HTML5, Tailwind CSS (Mobile-First Responsive Design), Vanilla JavaScript (ES6+)<br>**PDF & Client-Side Engine:** Mozilla `PDF.js` (ถอดรหัสผ่านและสกัดพิกัดข้อความใน Browser RAM 100%)<br>**Backend / Serverless:** Vercel Serverless Functions (Node.js Runtime, ES Module)<br>**AI & LLM Model:** Google Gemini Flash API (`gemini-2.5-flash` / `gemini-2.0-flash` พร้อม Model Fallback)<br>**Persistence:** Browser `localStorage` (Zero-Database Privacy Architecture) |
 
 ---
 
-## ⚡ สำหรับกรรมการสัมภาษณ์: ทดสอบระบบได้ใน 30 วินาที (Quick Judge Guide)
+## สำหรับกรรมการสัมภาษณ์: ทดสอบระบบได้ใน 30 วินาที (Quick Judge Guide)
 
 กรรมการสามารถเปิด **[Live URL (https://tang-hai-nu.vercel.app/)](https://tang-hai-nu.vercel.app/)** แล้วทดสอบฟีเจอร์หลักได้ทันทีโดยไม่ต้องใช้ไฟล์ธนาคารส่วนตัว และ **ไม่ต้องตั้งค่า API Key ใดๆ ทั้งสิ้น (AI ทำงานอัตโนมัติ 100%)**:
 
@@ -32,7 +32,7 @@
 
 ---
 
-## 🎯 1. ที่มาของปัญหา (Problem Statement)
+## 1. ที่มาของปัญหา (Problem Statement)
 
 การจดบันทึกรายรับ-รายจ่ายทุกวันเป็นเรื่องยากในชีวิตจริงเมื่อทุกอย่างจ่ายผ่าน QR PromptPay แต่เมื่อดาวน์โหลดไฟล์ **e-Statement (PDF)** รายเดือนจากธนาคารมาดูย้อนหลัง กลับพบปัญหาใหญ่ 4 ข้อ:
 1. **ไฟล์ PDF ติดรหัสผ่าน & ความเป็นส่วนตัว (Data Privacy):** ไฟล์สเตทเมนต์มีข้อมูลการเงินที่อ่อนไหว ผู้ใช้ไม่สบายใจที่จะอัปโหลดไฟล์ PDF ทั้งฉบับขึ้นเซิร์ฟเวอร์ภายนอก
@@ -42,7 +42,7 @@
 
 ---
 
-## 🏗️ 2. สถาปัตยกรรมระบบและจุดเด่นเชิงวิศวกรรม (System Architecture & Engineering Highlights)
+## 2. สถาปัตยกรรมระบบและจุดเด่นเชิงวิศวกรรม (System Architecture & Engineering Highlights)
 
 ```text
 [ผู้ใช้เลือกไฟล์ PDF e-Statement หรือกดปุ่ม Demo Data]
@@ -96,7 +96,7 @@
 * **3-Tier Categorization Flow:**
   1. **Tier 1 (Memory & Regex Rules):** ตรวจสอบจากประวัติที่ผู้ใช้เคยตั้งชื่อไว้ในเครื่อง (`localStorage`) และกฎร้านค้าพื้นฐานฟรี 0 บาท
   2. **Tier 2 (Deduplicated AI Batch):** กรองเฉพาะชื่อร้านค้าที่ไม่ซ้ำกัน (`Set Deduplication`) ก่อนส่งไปให้ Gemini AI เพื่อประหยัดโควตาและลด Token การเรียก API ได้กว่า 70–85%
-  3. **Tier 3 (Priority Review Queue):** ดึงรายการที่ไม่รู้จักมาเรียงจาก **ยอดเงินมากสุด $\rightarrow$ น้อยสุด** พร้อมแสดง **✨ คำใบ้จาก AI** เพื่อให้ระบุได้เสร็จในไม่กี่คลิก
+  3. **Tier 3 (Priority Review Queue):** ดึงรายการที่ไม่รู้จักมาเรียงจาก **ยอดเงินมากสุด $\rightarrow$ น้อยสุด** พร้อมแสดง **คำใบ้จาก AI** เพื่อให้ระบุได้เสร็จในไม่กี่คลิก
 
 ### 2.3 Zero-Config Serverless AI Proxy & Seamless Fallback (`api/gemini.js`)
 * เชื่อมต่อ Gemini API ผ่าน Vercel Serverless Function เพื่อซ่อน `GEMINI_API_KEY` ไว้ในเซิร์ฟเวอร์ ผู้ใช้ทั่วไปหรือกรรมการเข้าเว็บแล้วอัปโหลดไฟล์หรือกดดูตัวอย่าง **AI จะทำงานอัตโนมัติทันทีโดยไม่ต้องตั้งค่า API Key เอง**

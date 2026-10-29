@@ -130,6 +130,47 @@ window.TangHai.loadSampleData = function(bankType = 'SCB') {
   triggerAutoAIAnalysis(true);
 };
 
+window.TangHai.initTermsModal = function() {
+  const agreed = localStorage.getItem(CONSENT_STORAGE_KEY);
+  const modal = document.getElementById('terms-modal');
+  if (!agreed && modal) {
+    modal.classList.remove('hidden');
+
+    const scrollBody = document.getElementById('terms-scroll-body');
+    const checkbox = document.getElementById('terms-checkbox');
+    const checkboxLabel = document.getElementById('terms-checkbox-label');
+    const scrollHint = document.getElementById('terms-scroll-hint');
+    const acceptBtn = document.getElementById('terms-accept-btn');
+
+    const checkScroll = () => {
+      if (!scrollBody || !checkbox) return;
+      const isBottom = scrollBody.scrollHeight - scrollBody.scrollTop <= scrollBody.clientHeight + 35;
+      if (isBottom && checkbox.disabled) {
+        checkbox.disabled = false;
+        if (checkboxLabel) checkboxLabel.className = 'text-xs text-zinc-900 font-semibold leading-relaxed';
+        if (scrollHint) {
+          scrollHint.textContent = 'ท่านได้อ่านข้อตกลงครบถ้วนแล้ว กรุณาทำเครื่องหมายยินยอมด้านล่างเพื่อเข้าสู่ระบบ';
+          scrollHint.className = 'text-xs text-zinc-700 bg-zinc-100 py-2 px-3 rounded-xl text-center font-medium border border-zinc-200';
+        }
+      }
+    };
+
+    scrollBody?.addEventListener('scroll', checkScroll);
+    setTimeout(checkScroll, 200);
+    checkbox?.addEventListener('change', () => {
+      if (acceptBtn) {
+        acceptBtn.disabled = !checkbox.checked;
+      }
+    });
+  }
+};
+
+window.TangHai.acceptFormalTerms = function() {
+  localStorage.setItem(CONSENT_STORAGE_KEY, 'accepted');
+  document.getElementById('terms-modal')?.classList.add('hidden');
+  notify('ยินยอมรับข้อตกลงและนโยบายความเป็นส่วนตัวเรียบร้อย พร้อมใช้งานระบบ TangHai');
+};
+
 window.TangHai.handleAddCustomCategory = function() {
   const input = document.getElementById('custom-cat-input');
   if (!input) return;
@@ -231,7 +272,7 @@ function renderAccountMetadataCard() {
     nameEl.textContent = AppState.meta?.accountName || 'ไม่พบชื่อเจ้าของบัญชี (แตะเพื่อระบุ)';
     nameEl.className = AppState.meta?.accountName
       ? 'text-sm font-semibold text-zinc-900'
-      : 'text-sm font-semibold text-amber-700 underline cursor-pointer';
+      : 'text-sm font-semibold text-zinc-700 underline cursor-pointer';
     if (!AppState.meta?.accountName) {
       nameEl.onclick = () => window.TangHai.openEditAccountModal();
     } else {
@@ -251,7 +292,7 @@ function renderLifestylePresets() {
 
   let html = '';
 
-  // 1. แสดงหมวดหมู่ที่ Gemini AI แนะนำสำหรับผู้ใช้นี้โดยเฉพาะ (ถ้ามี)
+  // 1. แสดงหมวดหมู่ที่แนะนำสำหรับผู้ใช้นี้โดยเฉพาะ (ถ้ามี)
   if (Array.isArray(AppState.suggestedCategories) && AppState.suggestedCategories.length > 0) {
     for (const sug of AppState.suggestedCategories) {
       if (!sug.label) continue;
@@ -259,8 +300,8 @@ function renderLifestylePresets() {
       if (!alreadyAdded) {
         html += `
           <button onclick="window.TangHai.applyCustomCategoryFromAI('${encodeURIComponent(sug.label)}')"
-            class="group inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold shadow-sm transition">
-            <span>AI แนะนำ: ${sug.label}</span>
+            class="group inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-white text-xs font-semibold shadow-sm transition">
+            <span>แนะนำ: ${escapeHtml(sug.label)}</span>
             <span class="text-[10px] bg-white/20 group-hover:bg-white/30 px-1.5 py-0.5 rounded-md">+ เพิ่ม</span>
           </button>
         `;
@@ -275,7 +316,7 @@ function renderLifestylePresets() {
       html += `
         <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/80 border border-zinc-200 text-xs text-zinc-500">
           <span>${p.label.split('(')[0].trim()}</span>
-          <span class="text-[10px] text-emerald-600 font-semibold">ใช้งานอยู่</span>
+          <span class="text-[10px] text-zinc-700 font-semibold">ใช้งานอยู่</span>
         </span>
       `;
     } else {
@@ -283,7 +324,7 @@ function renderLifestylePresets() {
         <button onclick="window.TangHai.applyPresetCategory('${p.id}')"
           class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white hover:bg-zinc-100 border border-zinc-200 text-xs text-zinc-700 font-medium transition shadow-sm">
           <span>${p.label.split('(')[0].trim()}</span>
-          <span class="text-[10px] text-indigo-600 font-semibold">+ เพิ่ม</span>
+          <span class="text-[10px] text-zinc-900 font-semibold">+ เพิ่ม</span>
         </button>
       `;
     }
@@ -396,35 +437,11 @@ window.TangHai.removeUploadedFile = function(fileId) {
 
 function updateModeSwitcherUI() {
   const aiStatusText = document.getElementById('ai-mode-status');
-  const aiSummaryBadge = document.getElementById('ai-summary-badge');
-  const headerBadge = document.getElementById('ai-header-badge');
-  const headerDot = document.getElementById('ai-header-dot');
-  const headerText = document.getElementById('ai-header-text');
-
+  if (!aiStatusText) return;
   if (AppState.isAiLoading) {
-    if (aiStatusText) {
-      aiStatusText.textContent = 'กำลังให้ Gemini Flash วิเคราะห์พฤติกรรมการใช้จ่ายและจัดหมวดหมู่อัตโนมัติ...';
-    }
-    if (aiSummaryBadge) {
-      aiSummaryBadge.textContent = 'กำลังวิเคราะห์...';
-      aiSummaryBadge.className = 'px-2.5 py-1 text-[11px] rounded-full bg-amber-50 text-amber-700 border border-amber-200 font-medium animate-pulse';
-    }
-    if (headerBadge && headerDot && headerText) {
-      headerDot.className = 'w-1.5 h-1.5 rounded-full bg-amber-500 animate-ping';
-      headerText.textContent = 'กำลังวิเคราะห์ AI...';
-    }
+    aiStatusText.textContent = 'กำลังวิเคราะห์รายการ...';
   } else {
-    if (aiStatusText) {
-      aiStatusText.textContent = 'วิเคราะห์พฤติกรรมการใช้จ่ายและจัดหมวดหมู่อัตโนมัติด้วย Gemini Flash';
-    }
-    if (aiSummaryBadge) {
-      aiSummaryBadge.textContent = '✨ วิเคราะห์อัตโนมัติ';
-      aiSummaryBadge.className = 'px-2.5 py-1 text-[11px] rounded-full bg-indigo-50 text-indigo-700 border border-indigo-100 font-medium';
-    }
-    if (headerBadge && headerDot && headerText) {
-      headerDot.className = 'w-1.5 h-1.5 rounded-full bg-emerald-500';
-      headerText.textContent = 'วิเคราะห์ด้วย Gemini AI';
-    }
+    aiStatusText.textContent = 'วิเคราะห์อัตโนมัติ';
   }
 }
 
@@ -456,11 +473,11 @@ function hideAILoadingOverlay(success = true) {
   if (success && bar) {
     bar.style.transition = 'width 0.3s ease';
     bar.style.width = '100%';
-    if (title) title.textContent = 'วิเคราะห์สำเร็จ ✓';
+    if (title) title.textContent = 'วิเคราะห์สำเร็จ';
     if (sub) sub.textContent = 'จัดหมวดหมู่ครบทุกรายการแล้ว';
     setTimeout(() => {
       overlay.classList.add('hidden');
-      if (title) title.textContent = 'Gemini กำลังวิเคราะห์...';
+      if (title) title.textContent = 'กำลังวิเคราะห์รายการ...';
       if (sub) sub.textContent = 'จัดหมวดหมู่รายการอัตโนมัติ กรุณารอสักครู่';
       if (bar) bar.style.width = '40%';
     }, 700);
@@ -864,7 +881,7 @@ function renderSelfAccountsFlow() {
         </div>
         ${!hasOwnerName ? `
           <button onclick="window.TangHai.openEditAccountModal()"
-            class="text-xs text-indigo-600 hover:text-indigo-800 underline font-medium">
+            class="text-xs text-zinc-900 hover:text-zinc-700 underline font-medium">
             + ระบุชื่อเจ้าของบัญชี
           </button>
         ` : ''}
@@ -1036,13 +1053,13 @@ function renderTransactionTable() {
     const rowBg = 'hover:bg-zinc-50';
 
     let sourcePillClass = 'bg-zinc-100 text-zinc-600';
-    if (tx.source === 'AI_GUESS') sourcePillClass = 'bg-indigo-50 text-indigo-700 font-medium';
-    if (tx.source === 'MEMORY') sourcePillClass = 'bg-emerald-50 text-emerald-700 font-medium';
+    if (tx.source === 'AI_GUESS') sourcePillClass = 'bg-zinc-100 text-zinc-700 font-medium';
+    if (tx.source === 'MEMORY') sourcePillClass = 'bg-zinc-100 text-zinc-700 font-medium';
     if (tx.category === 'TRANSFER_PERSON') sourcePillClass = 'bg-teal-50 text-teal-700 font-medium';
     if (tx.category === 'UNKNOWN') sourcePillClass = 'bg-zinc-100 text-zinc-600 font-medium';
 
     const splitBadgeHtml = tx.splitFlag
-      ? `<span class="text-[11px] px-2 py-0.5 rounded-md bg-amber-50 border border-amber-200 text-amber-800 font-medium" title="${escapeHtml(tx.splitFlag.detail || '')}">⚡ ${escapeHtml(tx.splitFlag.badge)}${tx.splitFlag.detail ? ` · ${escapeHtml(tx.splitFlag.detail)}` : ''}</span>`
+      ? `<span class="text-[11px] px-2 py-0.5 rounded-md bg-zinc-100 border border-zinc-200 text-zinc-700 font-medium" title="${escapeHtml(tx.splitFlag.detail || '')}">${escapeHtml(tx.splitFlag.badge)}${tx.splitFlag.detail ? ` · ${escapeHtml(tx.splitFlag.detail)}` : ''}</span>`
       : '';
 
     return `
@@ -1093,7 +1110,7 @@ function renderTransactionTable() {
   if (mobileContainer) {
     mobileContainer.innerHTML = filtered.map(tx => {
       const splitBadgeMobile = tx.splitFlag
-        ? `<span class="px-1.5 py-0.5 rounded bg-amber-50 border border-amber-200 text-amber-800 text-[10px] font-medium">⚡ ${escapeHtml(tx.splitFlag.badge)}</span>`
+        ? `<span class="px-1.5 py-0.5 rounded bg-zinc-100 border border-zinc-200 text-zinc-700 text-[10px] font-medium">${escapeHtml(tx.splitFlag.badge)}</span>`
         : '';
       return `
         <div class="p-3.5 sm:p-4 space-y-2.5 bg-white">
@@ -1327,7 +1344,7 @@ async function triggerAutoAIAnalysis(silentOverlay = false) {
       hideAILoadingOverlay(true);
     }
     if (!res.cached) {
-      notify('✓ Gemini AI วิเคราะห์และจัดหมวดหมู่อัตโนมัติเรียบร้อยแล้ว');
+      notify('วิเคราะห์และจัดหมวดหมู่อัตโนมัติเรียบร้อยแล้ว');
     }
   } catch (err) {
     AppState.isAiLoading = false;
@@ -1517,6 +1534,9 @@ document.addEventListener('DOMContentLoaded', () => {
       renderTransactionTable();
     });
   }
+
+  // แสดงหน้าต่างข้อตกลงและนโยบายความเป็นส่วนตัว (Terms & Privacy Agreement Modal) หากยังไม่เคยยินยอม
+  window.TangHai.initTermsModal();
 
   // กู้คืนข้อมูลที่อัปโหลดไว้ล่าสุดอัตโนมัติ (เผลอกด Refresh ข้อมูลไม่หาย!)
   restoreSessionFromStorage();
