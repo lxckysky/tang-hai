@@ -634,18 +634,12 @@ window.TangHai.Categorizer = {
 ตอบกลับเป็น JSON เท่านั้น:
 {"items":[{"key":"...","category":"...","hint":"..."}],"summaryBullets":["...","...","..."]}`;
 
-    const isVertexKey = apiKey.startsWith('AQ.');
-    const candidateModels = isVertexKey
-      ? ['gemini-2.0-flash']
-      : ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-2.0-flash-lite', 'gemini-2.5-flash'];
-
+    const candidateModels = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-2.0-flash-lite', 'gemini-2.5-flash'];
     let lastError = null;
 
     for (const model of candidateModels) {
       try {
-        const url = isVertexKey
-          ? `https://aiplatform.googleapis.com/v1/publishers/google/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`
-          : `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`;
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`;
 
         const payload = {
           contents: [{ role: 'user', parts: [{ text: promptText }] }],
@@ -657,7 +651,10 @@ window.TangHai.Categorizer = {
 
         const response = await fetch(url, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            'x-goog-api-key': apiKey
+          },
           body: JSON.stringify(payload)
         });
 

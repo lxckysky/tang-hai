@@ -94,10 +94,7 @@ ${JSON.stringify(safeItems)}
 {"items":[{"key":"...","category":"...","hint":"..."}],"summaryBullets":["...","...","..."]}`;
     }
 
-    const isVertexKey = apiKey.startsWith('AQ.');
-    const candidateModels = isVertexKey
-      ? ['gemini-2.0-flash']
-      : ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-2.0-flash-lite', 'gemini-2.5-flash'];
+    const candidateModels = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-2.0-flash-lite', 'gemini-2.5-flash'];
 
     const hasUnknownCompany = safeItems.some(item => {
       const k = ((item.key || '') + ' ' + (item.desc || '')).toUpperCase();
@@ -110,11 +107,8 @@ ${JSON.stringify(safeItems)}
 
     for (const model of candidateModels) {
       try {
-        const url = isVertexKey
-          ? `https://aiplatform.googleapis.com/v1/publishers/google/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`
-          : `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`;
-
-        const supportsGrounding = !isVertexKey && (model === 'gemini-2.0-flash' || model === 'gemini-2.5-flash');
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`;
+        const supportsGrounding = (model === 'gemini-2.0-flash' || model === 'gemini-2.5-flash');
         const useGrounding = hasUnknownCompany && supportsGrounding;
 
         const payload = useGrounding
@@ -130,7 +124,10 @@ ${JSON.stringify(safeItems)}
 
         let geminiRes = await fetch(url, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            'x-goog-api-key': apiKey
+          },
           body: JSON.stringify(payload)
         });
 
@@ -138,7 +135,10 @@ ${JSON.stringify(safeItems)}
         if (!geminiRes.ok && useGrounding && (geminiRes.status === 400 || geminiRes.status === 404)) {
           geminiRes = await fetch(url, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+              'Content-Type': 'application/json',
+              'x-goog-api-key': apiKey
+            },
             body: JSON.stringify({
               contents: [{ role: 'user', parts: [{ text: promptText }] }],
               generationConfig: { responseMimeType: 'application/json', temperature: 0.2 }
