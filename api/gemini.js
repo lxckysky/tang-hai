@@ -94,7 +94,7 @@ ${JSON.stringify(safeItems)}
 {"items":[{"key":"...","category":"...","hint":"..."}],"summaryBullets":["...","...","..."]}`;
     }
 
-    const candidateModels = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-2.0-flash-lite', 'gemini-2.5-flash'];
+    const candidateModels = ['gemini-3.5-flash', 'gemini-3.8-flash', 'gemini-3.5-flash-lite'];
 
     const hasUnknownCompany = safeItems.some(item => {
       const k = ((item.key || '') + ' ' + (item.desc || '')).toUpperCase();
@@ -108,7 +108,7 @@ ${JSON.stringify(safeItems)}
     for (const model of candidateModels) {
       try {
         const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`;
-        const supportsGrounding = (model === 'gemini-2.0-flash' || model === 'gemini-2.5-flash');
+        const supportsGrounding = (model === 'gemini-3.8-flash' || model === 'gemini-3.5-flash');
         const useGrounding = hasUnknownCompany && supportsGrounding;
 
         const payload = useGrounding
