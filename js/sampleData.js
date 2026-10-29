@@ -201,3 +201,27 @@ window.TangHai.DEMO_STATEMENT_DATA = {
     { id: 'demo-14', page: 2, date: '20/10/26', time: '18:10', code: 'X2', channel: 'ENET', debit: 470.00, credit: 0, balance: 12167.50, description: 'PromptPay x1489 น.ส. สมหญิง รักเรียน', sourceBank: 'SCB' }
   ]
 };
+
+// ข้อมูลสเตทเมนต์ตัวอย่างสำหรับทดสอบระดับที่ 2: Code-Level (KTB / BBL / TTB)
+window.TangHai.DEMO_STATEMENT_KTB = {
+  fileName: 'KTB_CodeLevel_Oct2026.pdf',
+  meta: {
+    totalPages: 1,
+    openingBalance: 35000.00,
+    closingBalance: 28965.50,
+    accountName: 'นาย ทดสอบ ระบบวิเคราะห์',
+    accountNo: '006-2-XXXXX-1',
+    period: '01/10/2026 - 31/10/2026',
+    bankName: 'Krungthai'
+  },
+  transactions: [
+    { id: 'ktb-1', page: 1, date: '01/10/26', time: '09:00', code: 'TRF', channel: 'MOBILE', debit: 0, credit: 20000.00, balance: 55000.00, description: 'TRF 006-2-12345 นาย ทดสอบ ระบบวิเคราะห์', sourceBank: 'Krungthai' },
+    { id: 'ktb-2', page: 1, date: '02/10/26', time: '11:30', code: 'POS', channel: 'EDC', debit: 450.00, credit: 0, balance: 54550.00, description: 'POS DEBIT 412345******8901 EDC PURCHASE', sourceBank: 'Krungthai' },
+    { id: 'ktb-3', page: 1, date: '03/10/26', time: '14:15', code: 'CW', channel: 'ATM', debit: 1000.00, credit: 0, balance: 53550.00, description: 'ATM WDL 0109 ถอนเงินสดตู้กรุงไทย', sourceBank: 'Krungthai' },
+    { id: 'ktb-4', page: 1, date: '05/10/26', time: '02:30', code: 'D/D', channel: 'AUTO', debit: 1250.00, credit: 0, balance: 52300.00, description: 'D/D AUTO DEBIT BILL PAYMENT ค่าน้ำค่าไฟ', sourceBank: 'Krungthai' },
+    { id: 'ktb-5', page: 1, date: '08/10/26', time: '18:20', code: 'FEE', channel: 'SYSTEM', debit: 200.00, credit: 0, balance: 52100.00, description: 'ANNUAL FEE ค่าธรรมเนียมบัตรเดบิตรายปี', sourceBank: 'Krungthai' },
+    { id: 'ktb-6', page: 1, date: '12/10/26', time: '10:00', code: 'TRF', channel: 'MOBILE', debit: 2500.00, credit: 0, balance: 49600.00, description: 'TRF PromptPay 0891234567 นาย ทดสอบ ระบบวิเคราะห์', sourceBank: 'Krungthai' },
+    { id: 'ktb-7', page: 1, date: '16/10/26', time: '16:45', code: 'FE01', channel: 'INTERNET', debit: 650.00, credit: 0, balance: 48950.00, description: 'FE01 002938471 TRANSFER ITMX', sourceBank: 'Krungthai' },
+    { id: 'ktb-8', page: 1, date: '25/10/26', time: '23:50', code: 'INT', channel: 'SYSTEM', debit: 0, credit: 15.50, balance: 48965.50, description: 'INTEREST CREDIT ดอกเบี้ยรับเงินฝาก', sourceBank: 'Krungthai' }
+  ]
+};

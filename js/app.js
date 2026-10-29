@@ -79,22 +79,26 @@ window.TangHai.clearSession = function() {
   notify('ล้างข้อมูลสเตทเมนต์เรียบร้อย พร้อมอัปโหลดไฟล์ใหม่');
 };
 
-window.TangHai.loadSampleData = function() {
-  const sample = window.TangHai.DEMO_STATEMENT_DATA;
+window.TangHai.loadSampleData = function(bankType = 'SCB') {
+  const sample = bankType === 'KTB'
+    ? (window.TangHai.DEMO_STATEMENT_KTB || window.TangHai.DEMO_STATEMENT_DATA)
+    : window.TangHai.DEMO_STATEMENT_DATA;
   if (!sample) return;
-  const fileId = 'file-demo';
+  const fileId = `file-demo-${bankType.toLowerCase()}`;
   AppState.fileName = sample.fileName;
   AppState.meta = { ...sample.meta, ownerNames: [sample.meta.accountName] };
   AppState.uploadedFiles = [{
     fileId,
     fileName: sample.fileName,
-    bankName: sample.meta.bankName || 'SCB',
+    bankName: sample.meta.bankName || bankType,
     accountName: sample.meta.accountName || '',
     txCount: sample.transactions.length
   }];
   AppState.rawTransactions = sample.transactions.map(t => ({ ...t, sourceFileId: fileId }));
   runAnalysisAndRender();
-  notify('โหลดข้อมูลสเตทเมนต์ตัวอย่างเรียบร้อยแล้ว');
+  notify(bankType === 'KTB'
+    ? 'โหลดข้อมูลตัวอย่าง Krungthai (Code-Level) สำเร็จ'
+    : 'โหลดข้อมูลตัวอย่าง SCB (Full Details) สำเร็จ');
   triggerAutoAIAnalysis();
 };
 
@@ -117,8 +121,8 @@ window.TangHai.initTermsModal = function() {
         checkbox.disabled = false;
         if (checkboxLabel) checkboxLabel.className = 'text-xs text-zinc-900 font-semibold leading-relaxed';
         if (scrollHint) {
-          scrollHint.textContent = '✅ ท่านได้อ่านข้อตกลงครบถ้วนแล้ว กรุณากดติ๊กยินยอมด้านล่างเพื่อเข้าสู่ระบบ';
-          scrollHint.className = 'text-xs text-emerald-800 bg-emerald-50 py-1.5 px-3 rounded-lg text-center font-medium';
+          scrollHint.textContent = 'ท่านได้อ่านข้อตกลงครบถ้วนแล้ว กรุณาทำเครื่องหมายยินยอมด้านล่างเพื่อเข้าสู่ระบบ';
+          scrollHint.className = 'text-xs text-zinc-700 bg-zinc-100 py-2 px-3 rounded-xl text-center font-medium border border-zinc-200';
         }
       }
     };
