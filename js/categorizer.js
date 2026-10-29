@@ -20,12 +20,15 @@ const MERCHANT_AI_RULES = [
       'BONCHON', 'BURGER KING', 'YAYOI', 'FUJI', 'OISHI', 'SUSHIRO', 'SUKI TEENOI', 'สุกี้ตี๋น้อย',
       'ข้าวมันไก่', 'ข้าวหมูแดง', 'ก๋วยเตี๋ยว', 'ตามสั่ง', 'หมูกระทะ', 'ส้มตำ', 'ชาไข่มุก', 'บาร์บีคิว',
       'บุฟเฟต์', 'เบเกอรี่', 'BAKERY', 'KITCHEN', 'COFFEE', 'TEA', 'NOODLE', 'RESTAURANT', 'DINING', 'BISTRO',
-      // ร้านอาหาร/ของหวาน/สตรีทฟู้ด ยอดนิยมในไทย
+      // ร้านอาหาร/ของหวาน/สตรีทฟู้ด/เครื่องดื่ม ยอดนิยมในไทย
       'หนึ่ง นม นัว', 'นม นัว', 'นมสด', 'ขนมปัง', 'โทสต์', 'TOAST', 'บิงซู', 'โรตี',
       'หมาล่า', 'MALA', 'หมาล่าฮับ', 'หม้อไฟ', 'ชาบู', 'สุกี้',
       'โออิชิ', 'ราเมน', 'RAMEN', 'ราเมง',
       'มหาเฮง', 'ข้าวเหนียว', 'ร้านค้าออมสิน', 'ร้านอาหาร', 'ครัว', 'ของหวาน', 'ขนมหวาน',
-      'ไอศกรีม', 'ไอติม', 'ICE CREAM', 'DESSERT', 'STEAK', 'สเต็ก', 'ลูกชิ้น'
+      'ไอศกรีม', 'ไอติม', 'ICE CREAM', 'DESSERT', 'STEAK', 'สเต็ก', 'ลูกชิ้น',
+      'แฮปปี้ดริ้ง', 'ดริ้ง', 'DRINK', 'BEVERAGE', 'JUICE', 'SMOOTHIE', 'น้ำปั่น', 'น้ำผลไม้',
+      'GOLDEN FRUITS', 'FRUIT', 'ผลไม้', 'ซุ้มแปดเหลี่ยม', 'ซุ้มน้ำ', 'TRUEMONEY SHOP (ซุ้ม',
+      'THAIHA', 'ไทยฮา', 'JITDHANA', 'จิตต์ธนา', 'KSHER_CDIP', 'KSHER', 'อัพทูยู', 'KUKKIK'
     ],
     category: 'FOOD'
   },
@@ -35,7 +38,7 @@ const MERCHANT_AI_RULES = [
       'เวนดิ้ง', 'บุญเติม', 'จิฟฟี่', 'JIFFY', '7-ELEVEN', 'CP ALL', 'LAWSON',
       'LOTUS', "LOTUS'S", 'โลตัส', 'CJ EXPRESS', 'CJ MORE', 'MAKRO', 'แม็คโคร',
       'VILLA MARKET', 'GOURMET MARKET', 'FOODLAND', 'FAMILYMART', 'MINI BIG C',
-      'DONKI', 'DON DON DONKI', 'MAXVALU'
+      'DONKI', 'DON DON DONKI', 'MAXVALU', 'SUN VENDING', 'ซันเวนดิ้ง', 'เต่าบิน', 'TAO BIN', 'VALABLE PROJECT'
     ],
     category: 'GROCERY'
   },
@@ -48,9 +51,10 @@ const MERCHANT_AI_RULES = [
       'ปตท', 'พีทีที', 'PTT STATION', 'RITTIDOL OIL', 'ESSO', 'ESTACIÓN',
       'น้ำมันงาม', 'OIL LTD', 'OIL PART', 'สถานีน้ำมัน', 'ปั๊มน้ำมัน',
       'GAS STATION', 'FUEL', 'PETROLEUM',
-      // บริการที่จอดรถ และยานพาหนะเดินทาง (JPARK / GCOO / สกู๊ตเตอร์)
+      // รถเมล์ไฟฟ้า บริการที่จอดรถ และยานพาหนะเดินทาง (ไทย สมายล์ บัส / JPARK / GCOO / สกู๊ตเตอร์)
+      'ไทย สมายล์ บัส', 'THAI SMILE BUS', 'สมายล์ บัส', 'SMILE BUS', 'รถเมล์', 'ขสมก',
       'JENKONGKLAI', 'เจนก้องไกล', 'JPARK', 'ที่จอดรถ', 'ค่าจอดรถ', 'CAR PARK', 'PARKING',
-      'GCOO', 'SCOOTER', 'สกู๊ตเตอร์', 'BEAM', 'เช่ารถ', 'CAR RENTAL'
+      'GCOO', 'SCOOTER', 'สกู๊ตเตอร์', 'BEAM', 'MUVMI', 'มูฟมี', 'เช่ารถ', 'CAR RENTAL'
     ],
     category: 'TRANSPORT'
   },
@@ -71,7 +75,8 @@ const MERCHANT_AI_RULES = [
       'TIKTOK SHOP', 'PIPO', 'UNIQLO', 'ยูนิโคล่', 'ซัมมิท ไพน์เฮ', 'OMISE', 'SHOPEE', 'LAZADA', 'ยูอาร์เดอะ',
       'PINEHURST', 'LIANLIAN', 'อัลติเมต', 'ZARA', 'H&M', 'MUJI', 'DECATHLON',
       'MR.DIY', 'MR DIY', 'HOMEPRO', 'CENTRAL', 'THE MALL', 'EVEANDBOY', 'BEAUTRIUM',
-      'IKEA', 'APPLE.COM', 'STEAM', 'PLAYSTATION',
+      'IKEA', 'APPLE.COM', 'STEAM', 'PLAYSTATION', '2C2P', 'STRIPE', 'ATOME',
+      'เนชั่นแนล เวิลด์', 'NATIONAL WORLD',
       // โรงภาพยนตร์และความบันเทิง
       'เอส เอฟ ซีเนม่า', 'เอส เอฟ', 'SF CINEMA', 'CINEMA', 'ซีเนม่า', 'MAJOR CINEPLEX', 'เมเจอร์', 'CINEPLEX', 'โรงหนัง', 'เดอะมอลล์'
     ],
@@ -80,11 +85,11 @@ const MERCHANT_AI_RULES = [
   {
     keywords: [
       'METROPOLITAN ELECTRICITY', 'การไฟฟ้า', 'PEA', 'MEA', 'ประปา', 'MWA', 'PWA',
-      'AIS POSTPAID', 'AIS FIBRE', 'TRUE MOVE', 'TRUE ONLINE', 'DTAC', '3BB',
+      'AIS POSTPAID', 'AIS FIBRE', 'TRUE MOVE', 'TRUE ONLINE', 'TRUE DIGITAL', 'DTAC', '3BB',
       'NT BROADBAND', 'NETFLIX', 'SPOTIFY', 'YOUTUBE', 'GOOGLE STORAGE', 'ICLOUD',
       'เดอะเรสซิเดนซ์', 'เรสซิเดนซ์', 'RESIDENCE', 'หอพัก', 'อพาร์ตเมนต์', 'คอนโด', 'ค่าเช่า', 'ส่วนกลาง', 'APARTMENT', 'CONDO',
       'นิติบุคคล', 'อาคารชุด', 'นิติบุคคลอาคาร', 'JURISTIC', 'VILLAGE', 'ESTATE',
-      'ไอดีโอ', 'IDEO', 'ASHTON', 'LPN', 'LUMPINI',
+      'ไอดีโอ', 'IDEO', 'ASHTON', 'LPN', 'LUMPINI', 'OTTERI', 'WASHXPRESS', '24WASH',
       'ค่าน้ำ', 'ค่าไฟ', 'ค่าส่วนกลาง', 'ค่าบริการ', 'ค่าเน็ต', 'ค่าโทรศัพท์'
     ],
     category: 'BILLS'
@@ -173,15 +178,27 @@ function inferByBankCode(tx = {}) {
 }
 
 function inferContextCategory(tx = {}) {
-  const desc = (tx.description || '').toUpperCase();
+  const rawDesc = (tx.description || '').trim();
+  const desc = rawDesc.toUpperCase();
+  const amount = tx.debit || 0;
 
   // 1. ตรวจจาก Bank Code หรือชื่อช่องทาง
   const codeMatch = inferByBankCode(tx);
   if (codeMatch) return codeMatch;
 
   // 2. ค่าเดินทาง — ตรวจจากชื่อบริการที่ชัดเจนใน description
-  if (desc.includes('GRABTAXI') || desc.includes('BOLT RIDE') || desc.includes('LINE MAN RIDE')) {
-    return { category: 'TRANSPORT', label: 'การเดินทาง', hint: 'ค่าโดยสาร Grab/Bolt' };
+  if (desc.includes('GRABTAXI') || desc.includes('BOLT RIDE') || desc.includes('LINE MAN RIDE') || desc.includes('SMILE BUS') || desc.includes('สมายล์ บัส')) {
+    return { category: 'TRANSPORT', label: 'แยกจากชื่อร้าน', hint: 'ค่าโดยสารเดินทาง' };
+  }
+
+  // 3. รายการ "จ่ายบิล" ให้ร้านค้าย่อย / ถุงเงิน / TrueMoney Shop / Ksher / บจก. ยอดอาหารและเครื่องดื่ม (10 - 150 บาท)
+  if (/^จ่ายบิล\s+/i.test(rawDesc)) {
+    if (amount > 0 && amount <= 12) {
+      return { category: 'GROCERY', label: 'แยกจากชื่อร้าน', hint: 'ตู้กดน้ำ/บริการหยอดเหรียญย่อย' };
+    }
+    if (amount > 12 && amount <= 150) {
+      return { category: 'FOOD', label: 'แยกจากชื่อร้าน', hint: 'ร้านอาหาร/เครื่องดื่มย่อย' };
+    }
   }
 
   return null;
@@ -237,7 +254,7 @@ function isMatchingOwnerName(desc = '', ownerData = {}) {
   return tokens.some(t => t.length >= 3 && desc.includes(t));
 }
 
-const AI_CACHE_KEY = 'tanghai_gemini_cache_v2';
+const AI_CACHE_KEY = 'tanghai_gemini_cache_v3';
 const API_KEY_STORAGE = 'tanghai_gemini_api_key';
 
 function getStoredApiKey() {
@@ -520,8 +537,11 @@ window.TangHai.Categorizer = {
       const matchedBasic = MERCHANT_AI_RULES.find(r => r.keywords.some(kw => upper.includes(kw.toUpperCase())));
       if (matchedBasic) continue;
 
-      // ส่งให้ AI ช่วยดูเฉพาะรายการที่ไม่คุ้นเคยและยังไม่มีในแคช
-      if (!aiCache.merchants[normKey]) {
+      // 6. ข้ามรายการที่เป็นโอนให้บุคคลธรรมดาชัดเจน (เพื่อไม่ให้แย่งโควตา Batch ของชื่อร้านค้า/บริษัท)
+      if (isLikelyPersonalTransfer(normKey)) continue;
+
+      // ส่งให้ AI ช่วยดูเฉพาะรายการที่ไม่คุ้นเคย หรือรายการที่เคยได้ UNKNOWN จากรอบก่อน
+      if (!aiCache.merchants[normKey] || aiCache.merchants[normKey].category === 'UNKNOWN') {
         seenKeys.add(normKey);
         itemsToAsk.push({
           key: normKey,

@@ -36,8 +36,8 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'ไม่พบรายการสำหรับวิเคราะห์' });
     }
 
-    // จำกัดจำนวนรายการต่อคำขอ (ไม่เกิน 40 รายการที่ไม่ซ้ำกัน) เพื่อคุมโควตาและประสิทธิภาพ
-    const safeItems = Array.isArray(items) ? items.slice(0, 40) : [];
+    // จำกัดจำนวนรายการต่อคำขอ (ไม่เกิน 80 รายการที่ไม่ซ้ำกัน) เพื่อรองรับการอัปโหลดหลายเดือนรวมกัน
+    const safeItems = Array.isArray(items) ? items.slice(0, 80) : [];
 
     let promptText = '';
     if (promptOverride && typeof promptOverride === 'string') {
@@ -154,33 +154,22 @@ ${overviewContext ? JSON.stringify(overviewContext) : 'ไม่มีข้อ�
 
     const candidateModels = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-2.0-flash-lite'];
 
-    const hasUnknownCompany = safeItems.some(item => {
-      const k = ((item.key || '') + ' ' + (item.desc || '')).toUpperCase();
-      return k.includes('COMPANY') || k.includes('LIMITED') || k.includes('บจก') ||
-             k.includes('PUBLIC') || k.includes('LTD') || k.includes('PART.');
-    });
-
     let lastError = null;
     let parsedData = null;
 
     for (const model of candidateModels) {
       try {
         const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`;
-        const supportsGrounding = (model === 'gemini-2.5-flash' || model === 'gemini-2.0-flash');
-        const useGrounding = hasUnknownCompany && supportsGrounding && safeItems.length > 0;
 
-        const payload = useGrounding
-          ? {
-              contents: [{ role: 'user', parts: [{ text: promptText }] }],
-              tools: [{ google_search: {} }],
-              generationConfig: { temperature: 0.2 }
-            }
-          : {
-              contents: [{ role: 'user', parts: [{ text: promptText }] }],
-              generationConfig: { responseMimeType: 'application/json', temperature: 0.2 }
-            };
+        const payload = {
+          contents: [{ role: 'user', parts: [{ text: promptText }] }],
+          generationConfig: {
+            responseMimeType: 'application/json',
+            temperature: 0.15
+          }
+        };
 
-        let geminiRes = await fetch(url, {
+        const geminiRes = await fetch(url, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -188,21 +177,6 @@ ${overviewContext ? JSON.stringify(overviewContext) : 'ไม่มีข้อ�
           },
           body: JSON.stringify(payload)
         });
-
-        // ถ้าเรียกแบบมี Google Search Tool แล้วติด 400 ให้ retry แบบ standard json ทันที
-        if (!geminiRes.ok && useGrounding && (geminiRes.status === 400 || geminiRes.status === 404)) {
-          geminiRes = await fetch(url, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'x-goog-api-key': apiKey
-            },
-            body: JSON.stringify({
-              contents: [{ role: 'user', parts: [{ text: promptText }] }],
-              generationConfig: { responseMimeType: 'application/json', temperature: 0.2 }
-            })
-          });
-        }
 
         if (!geminiRes.ok) {
           const errBody = await geminiRes.text();
