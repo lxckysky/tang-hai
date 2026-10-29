@@ -1202,6 +1202,7 @@ window.TangHai.autoSaveRowChange = function(txId, isMobile = false) {
 };
 
 // บันทึกจากปุ่มชัดเจนในแถวรายการ — อ่านค่าจาก select/input แล้วบันทึกเข้า MemoryStore
+// อัปเดตเฉพาะแถวที่เกี่ยวข้องใน DOM แทนการ re-render ทั้งหน้าเพื่อป้องกัน scroll jump
 window.TangHai.saveRowMemory = function(txId, isMobile = false) {
   const tx = AppState.rawTransactions.find(t => t.id === txId);
   if (!tx) return;
@@ -1215,6 +1216,7 @@ window.TangHai.saveRowMemory = function(txId, isMobile = false) {
   const normKey = window.TangHai.MemoryStore.normalizeKey(tx.description);
   const saved = window.TangHai.MemoryStore.saveRule(tx.description, newCategory, newAlias);
 
+  // อัปเดต state
   let updatedCount = 0;
   AppState.rawTransactions = AppState.rawTransactions.map(item => {
     if (window.TangHai.MemoryStore.normalizeKey(item.description) === normKey) {
@@ -1223,7 +1225,45 @@ window.TangHai.saveRowMemory = function(txId, isMobile = false) {
     }
     return item;
   });
-  runAnalysisAndRender();
+
+  // อัปเดต DOM เฉพาะแถวที่ match — ไม่ re-render ทั้งหน้า scroll ไม่กระโดด
+  AppState.transactions.forEach(item => {
+    if (window.TangHai.MemoryStore.normalizeKey(item.description) !== normKey) return;
+    const id = item.id;
+
+    // ซิงค์ category select ทั้ง desktop และ mobile
+    ['cat-' + id, 'cat-m-' + id].forEach(elId => {
+      const el = document.getElementById(elId);
+      if (el) el.value = newCategory;
+    });
+
+    // ซิงค์ note input ทั้ง desktop และ mobile
+    if (newAlias) {
+      ['note-' + id, 'note-m-' + id].forEach(elId => {
+        const el = document.getElementById(elId);
+        if (el) el.value = newAlias;
+      });
+    }
+  });
+
+  // อัปเดต transactions state สำหรับ render ครั้งต่อไป (ไม่ trigger render ตอนนี้)
+  AppState.transactions = AppState.transactions.map(item => {
+    if (window.TangHai.MemoryStore.normalizeKey(item.description) === normKey) {
+      return { ...item, category: newCategory, userNote: newAlias || item.userNote };
+    }
+    return item;
+  });
+
+  // อัปเดตเฉพาะ badge จัดหมวดหมู่ และ overview metrics (ไม่แตะ DOM รายการ)
+  const unknownCount = AppState.transactions.filter(t => t.category === 'UNKNOWN').length;
+  const navBadge = document.getElementById('nav-badge-priority');
+  const mobBadge = document.getElementById('mobile-badge-priority');
+  if (navBadge) navBadge.textContent = unknownCount;
+  if (mobBadge) mobBadge.textContent = unknownCount;
+
+  // บันทึก session ในพื้นหลัง
+  saveSessionToStorage();
+
   notify(`บันทึกเข้าสมุดจำเรียบร้อย (อัปเดต "${saved?.key || normKey}" ${updatedCount} รายการ)`);
 };
 
