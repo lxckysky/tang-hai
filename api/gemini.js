@@ -85,22 +85,29 @@ ${defaultCatDesc.join(', ')}
    - ใช้ TRANSFER_PERSON เท่านั้น ห้ามเดาว่าเป็นค่าอาหารหรือค่าหอ
 5. ถ้าไม่สามารถระบุได้จากชื่อ ใส่ UNKNOWN
 
+**สำคัญ**: ก่อนตอบ UNKNOWN ให้ใช้ความรู้เกี่ยวกับบริษัทจดทะเบียน (SET/MAI), แบรนด์ไทย, และธุรกิจทั่วไปในประเทศไทยเพื่อระบุประเภท ถ้ายังไม่แน่ใจ ให้ค้นหาข้อมูลเพิ่มเติมก่อน
+
 รายการที่ต้องวิเคราะห์:
 ${JSON.stringify(safeItems)}
 
 งานที่ 2: สรุปภาพรวมพฤติกรรมการเงินสั้นๆ 3 ข้อ (summaryBullets) จากข้อมูลที่มีจริง (ห้ามกุเรื่อง)
 
-ตอบกลับเป็น JSON เท่านั้น:
-{
-  "items": [{"key": "...", "category": "...", "hint": "..."}],
-  "summaryBullets": ["...", "...", "..."]
-}`;
+ตอบกลับเป็น JSON เท่านั้น (ไม่มีข้อความอื่น ไม่มี markdown):
+{"items":[{"key":"...","category":"...","hint":"..."}],"summaryBullets":["...","...","..."]}`;
     }
 
     const isVertexKey = apiKey.startsWith('AQ.');
     const candidateModels = isVertexKey
       ? ['gemini-2.0-flash']
       : ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash'];
+
+    // ตรวจว่ามีรายการที่เป็น "ชื่อบริษัทไม่รู้จัก" หรือเปล่า
+    // ถ้ามี → เปิด Google Search Grounding ให้ Gemini ค้นหาข้อมูลก่อนตอบ
+    const hasUnknownCompany = safeItems.some(item => {
+      const k = (item.key || '').toUpperCase();
+      return k.includes('COMPANY') || k.includes('LIMITED') || k.includes('บจก') ||
+             k.includes('PUBLIC') || k.includes('LTD') || k.includes('PART.');
+    });
 
     let lastError = null;
     let parsedData = null;
@@ -111,13 +118,23 @@ ${JSON.stringify(safeItems)}
           ? `https://aiplatform.googleapis.com/v1/publishers/google/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`
           : `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`;
 
-        const payload = {
-          contents: [{ role: 'user', parts: [{ text: promptText }] }],
-          generationConfig: {
-            responseMimeType: 'application/json',
-            temperature: 0.2
-          }
-        };
+        // เปิด Google Search Grounding เมื่อมีชื่อบริษัทที่ไม่คุ้นเคย
+        // และใช้ gemini-2.0-flash ขึ้นไปเท่านั้น (1.5 flash ไม่รองรับ google_search tool)
+        const supportsGrounding = !isVertexKey && (model === 'gemini-2.5-flash' || model === 'gemini-2.0-flash');
+        const useGrounding = hasUnknownCompany && supportsGrounding;
+
+        const payload = useGrounding
+          ? {
+              // Grounding mode: ค้น Google ก่อนตอบ — ไม่ใช้ responseMimeType (incompatible with tools)
+              contents: [{ role: 'user', parts: [{ text: promptText }] }],
+              tools: [{ google_search: {} }],
+              generationConfig: { temperature: 0.2 }
+            }
+          : {
+              // Standard mode: ตอบ JSON โดยตรง
+              contents: [{ role: 'user', parts: [{ text: promptText }] }],
+              generationConfig: { responseMimeType: 'application/json', temperature: 0.2 }
+            };
 
         const geminiRes = await fetch(url, {
           method: 'POST',
@@ -135,9 +152,16 @@ ${JSON.stringify(safeItems)}
         }
 
         const data = await geminiRes.json();
-        const rawJson = data?.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
-        parsedData = JSON.parse(rawJson);
-        break; // สำเร็จแล้ว
+        const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
+
+        if (useGrounding) {
+          // Grounding response เป็น text ธรรมดา — ดึง JSON block ออกมา
+          const jsonMatch = rawText.match(/\{[\s\S]*"items"[\s\S]*\}/);
+          parsedData = jsonMatch ? JSON.parse(jsonMatch[0]) : JSON.parse(rawText);
+        } else {
+          parsedData = JSON.parse(rawText);
+        }
+        break;
       } catch (e) {
         lastError = e.message;
       }
