@@ -1444,6 +1444,11 @@ async function handlePdfFile(file, isAppend = false) {
   AppState.pendingFileName = file.name;
   AppState.isAppendMode = isAppend;
 
+  // ล้าง AI cache เมื่ออัพไฟล์ใหม่ (ไม่ใช่ append) เพื่อให้วิเคราะห์ใหม่ทุกครั้ง
+  if (!isAppend) {
+    window.TangHai.Categorizer?.clearAICache?.();
+  }
+
   const loadingOverlay = document.getElementById('pdf-loading-overlay');
   const loadingText = document.getElementById('pdf-loading-text');
   if (loadingOverlay) {
@@ -1486,18 +1491,31 @@ async function handlePdfFile(file, isAppend = false) {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+  // helper: process หลายไฟล์ตามลำดับ (รอทีละไฟล์ ไม่ parallel เพราะ PDF.js มี state)
+  async function processMultipleFiles(files, isAppend) {
+    const fileList = Array.from(files).filter(f => f.type === 'application/pdf' || f.name.toLowerCase().endsWith('.pdf'));
+    if (fileList.length === 0) return;
+    for (let i = 0; i < fileList.length; i++) {
+      // ไฟล์แรกใช้ isAppend ตามที่ส่งมา ไฟล์ที่สองเป็นต้นไปให้ append เสมอ
+      const appendMode = isAppend || i > 0;
+      await handlePdfFile(fileList[i], appendMode);
+    }
+  }
+
   document.querySelectorAll('.pdf-file-input').forEach(input => {
-    input.addEventListener('change', e => {
-      const file = e.target.files?.[0];
-      if (file) handlePdfFile(file, false);
+    input.setAttribute('multiple', 'true');
+    input.addEventListener('change', async e => {
+      const files = e.target.files;
+      if (files?.length) await processMultipleFiles(files, false);
       e.target.value = '';
     });
   });
 
   document.querySelectorAll('.pdf-append-input').forEach(input => {
-    input.addEventListener('change', e => {
-      const file = e.target.files?.[0];
-      if (file) handlePdfFile(file, true);
+    input.setAttribute('multiple', 'true');
+    input.addEventListener('change', async e => {
+      const files = e.target.files;
+      if (files?.length) await processMultipleFiles(files, true);
       e.target.value = '';
     });
   });
@@ -1511,11 +1529,11 @@ document.addEventListener('DOMContentLoaded', () => {
     dropZone.addEventListener('dragleave', () => {
       dropZone.classList.remove('border-zinc-900', 'bg-zinc-100/70');
     });
-    dropZone.addEventListener('drop', e => {
+    dropZone.addEventListener('drop', async e => {
       e.preventDefault();
       dropZone.classList.remove('border-zinc-900', 'bg-zinc-100/70');
-      const file = e.dataTransfer?.files?.[0];
-      if (file) handlePdfFile(file);
+      const files = e.dataTransfer?.files;
+      if (files?.length) await processMultipleFiles(files, false);
     });
   }
 
