@@ -173,17 +173,31 @@ window.TangHai.acceptFormalTerms = function() {
 
 window.TangHai.handleAddCustomCategory = function() {
   const input = document.getElementById('custom-cat-input');
+  const errEl = document.getElementById('custom-cat-error');
   if (!input) return;
   const label = input.value.trim();
   if (!label) {
-    notify('กรุณาพิมพ์ชื่อหมวดหมู่ที่ต้องการเพิ่ม');
+    if (errEl) {
+      errEl.textContent = 'กรุณากรอกชื่อหมวดหมู่ที่ต้องการเพิ่ม';
+      errEl.classList.remove('hidden');
+    }
+    input.classList.add('border-rose-500');
     return;
   }
+  if (errEl) errEl.classList.add('hidden');
+  input.classList.remove('border-rose-500');
+
   const newId = window.TangHai.addCustomCategory(label);
   if (newId) {
     input.value = '';
     runAnalysisAndRender();
     notify(`เพิ่มหมวดหมู่ "${label}" เรียบร้อยแล้ว!`);
+  } else {
+    if (errEl) {
+      errEl.textContent = 'มีหมวดหมู่นี้อยู่แล้วในระบบ';
+      errEl.classList.remove('hidden');
+    }
+    input.classList.add('border-rose-500');
   }
 };
 
@@ -1548,6 +1562,16 @@ document.addEventListener('DOMContentLoaded', () => {
       renderTransactionTable();
     });
   }
+
+  // รองรับการกดปุ่ม ESC บนคีย์บอร์ดเพื่อปิด Modal
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' || e.key === 'Esc') {
+      window.TangHai.closeCategoryModal?.();
+      window.TangHai.closeBankGuideModal?.();
+      window.TangHai.closeEditAccountModal?.();
+      window.TangHai.closePasswordModal?.();
+    }
+  });
 
   // แสดงหน้าต่างข้อตกลงและนโยบายความเป็นส่วนตัว (Terms & Privacy Agreement Modal) หากยังไม่เคยยินยอม
   window.TangHai.initTermsModal();
